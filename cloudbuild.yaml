@@ -1,4 +1,6 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'gcr.io/quix-demo/frontend', './quix-frontend']
-images: ['gcr.io/quix-demo/frontend']
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'gcr.io/quix-demo/backend', './quix-backend']
+images: ['gcr.io/quix-demo/frontend', 'gcr.io/quix-demo/backend']
