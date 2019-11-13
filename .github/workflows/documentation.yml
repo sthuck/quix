@@ -1,0 +1,28 @@
+name: Documentation build
+
+on:
+  push:
+    paths:
+    - 'documentation/**'
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '12.x'
+    - run: cd documentation/website
+    - run: npm install
+    - run: npm run build
+    - name: Deploy
+      if: success()
+      uses: crazy-max/ghaction-github-pages@v1
+      with:
+        target_branch: gh-pages
+        build_dir: documentation/website/build
+      env:
+        GITHUB_PAT: ${{ secrets.PAT }}
