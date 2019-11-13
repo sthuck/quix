@@ -3,7 +3,7 @@ name: Documentation build
 on:
   push:
     paths:
-    - 'documentation/**'
+    - 'documentation/**/*.*'
 
 jobs:
   build:
