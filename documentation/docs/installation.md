@@ -9,7 +9,7 @@ sidebar_label: Installation
 * [Docker Compose](https://docs.docker.com/compose/install/)
 
 ## Running
-Run Docker Compose:
+Run Docker Composeeeeeeeeeeeeeee:
 
 ```
 docker-compose up
