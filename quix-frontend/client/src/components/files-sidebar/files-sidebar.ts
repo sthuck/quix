@@ -3,18 +3,20 @@ import './files-sidebar.scss';
 
 import {initNgScope} from '../../lib/core';
 import {Store} from '../../lib/store';
-import {Instance} from '../../lib/app';
-import {FileActions, NotebookActions, IFile} from '../../../../shared';
+import {App} from '../../lib/app';
+import {FileActions, NotebookActions, IFile} from '@wix/quix-shared';
 import {IScope} from './files-sidebar-types';
 import {cache} from '../../store';
 import {
   addNotebook,
   addFolder,
+  deleteFolder,
   isRoot,
   getFolderPermissions,
   StateManager,
   goToFile
 } from '../../services';
+import { goToNotebook } from '../../services/notebook';
 
 enum States {
   Initial,
@@ -23,26 +25,30 @@ enum States {
   Content
 }
 
-const listenToEvents = (scope, app: Instance, store: Store, fileExplorer) => {
+const listenToEvents = (scope, app: App, store: Store, fileExplorer) => {
   fileExplorer
-    .on('fileCreated', ({id, path}) => addNotebook(store, app, path, {id}), false, scope)
+    .on('fileCreated', ({id, path}) => {
+      addNotebook(store, app, path, {addNote: true}, {id})
+        .then(notebook => goToNotebook(app, notebook, {isNew: true}));
+      }, false, scope)
     .on('fileMoved', ({id, path}) => store.dispatchAndLog(NotebookActions.moveNotebook(id, path)), false, scope)
-    .on('folderDeleted', ({id}) => store.dispatchAndLog(FileActions.deleteFile(id)), false, scope)
+    .on('folderDeleted', (folder) => deleteFolder(store, app, folder), false, scope)
     .on('folderCreated', ({id, path}) => addFolder(store, app, path, {id}), false, scope)
     .on('folderRenamed', ({id, name}) => store.dispatchAndLog(FileActions.updateName(id, name)), false, scope)
     .on('folderMoved', ({id, path}) => store.dispatchAndLog(FileActions.moveFile(id, path)), false, scope);
 }
 
-const listenToNavChange = (scope: IScope, app: Instance, fileExplorer) => {
+const listenToNavChange = (scope: IScope, app: App, fileExplorer) => {
   app.getNavigator()
-  .listen(['base.files', 'base.notebook'], 'success', ({id}: {id: string}) => {
-    const file = scope.vm.state.value().files.find(f => f.id === id);
-    return file && fileExplorer.setActive(file);
-  }, scope)
-  .otherwise(() => fileExplorer.clearActive());
+    .listen(['files', 'notebook'], 'success', ({id}: {id: string}) => {
+      const file = scope.vm.state.value().files.find(f => f.id === id);
+
+     return file ? fileExplorer.setActive(file) : fileExplorer.clearActive();
+    }, scope)
+    .otherwise(() => fileExplorer.clearActive());
 }
 
-export default (app: Instance, store: Store) => () => ({
+export default (app: App, store: Store) => () => ({
   restrict: 'E',
   template,
   scope: {},
@@ -66,7 +72,8 @@ export default (app: Instance, store: Store) => () => ({
             goToFile(app, folder);
           }, 
           onNotebookAdd() {
-            addNotebook(store, app, []);
+            addNotebook(store, app, [], {addNote: true})
+              .then(notebook => goToNotebook(app, notebook, {isNew: true}));
           }
         });
 

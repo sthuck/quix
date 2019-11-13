@@ -1,7 +1,7 @@
 import { initNgScope, inject } from '../../../core';
-import {ChartRenderer} from './pie-renderer';
+import {PieRenderer} from './pie-renderer';
 import {IInputItem} from '../../services/viz-conf';
-import {ChartViz} from '../../services/pie/pie-viz-service';
+import {ChartViz} from '../../services/chart/chart-viz-service';
 
 import template from './pie.html';
 import './pie.scss';
@@ -19,11 +19,15 @@ export interface IScope extends angular.IScope {
 }
 
 function createRenderer(scope: IScope, element) {
-  return new ChartRenderer(element.find('.bvp-container'));
+  return new PieRenderer(element.find('.bvp-container'));
 }
 
 function load(scope: IScope, element) {
-  scope.viz = scope.viz || new ChartViz(scope.data, createRenderer(scope, element), scope.fields);
+  scope.viz = scope.viz || new ChartViz(scope.data, createRenderer(scope, element), {
+    fields: scope.fields,
+    xMeta: 'dimensions',
+  });
+
   scope.viz.filter().draw();
 }
 
@@ -75,7 +79,7 @@ export default () => {
               loadAsync(scope, element);
             }
           })
-          .withState(scope.$state || 'chart', `${scope.statePrefix}chart`, {});
+          .withState(scope.$state || 'pie', `${scope.statePrefix}pie`, {});
 
         if (!scope.vm.maximize.enabled) {
           loadAsync(scope, element);

@@ -1,4 +1,6 @@
 import {StateManager} from '../../services/state';
+import {App} from '../../lib/app';
+import {pluginManager} from '../../plugins';
 
 enum States {
   Initial,
@@ -7,12 +9,9 @@ enum States {
   Content
 }
 
-export default () => ({
+export default (app: App) => ({
   note: null,
-  breadcrumbs: {
-    enabled: true,
-    folders: [{name: 'My notebooks'}],
-  },
+  breadcrumbs: [{name: 'My notebooks'}],
   view: {
     hasChanges: false
   },
@@ -23,6 +22,10 @@ export default () => ({
       scrollTo: false,
       focusName: false
     });
+
+    this.noteTypes = pluginManager.module('note').plugins()
+      .filter(plugin => plugin.getConfig().canCreate)
+      .map(plugin => plugin.getId());
 
     this.state = new StateManager(States);
     this.marked.map = {};

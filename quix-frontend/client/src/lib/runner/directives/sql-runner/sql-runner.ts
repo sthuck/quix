@@ -8,6 +8,7 @@ import {attachErrorHandler, getParamsOffset} from '../../services/syntax-valdato
 import {initSqlWorker} from '../../services/workers/sql-parser-worker';
 import {RunnerComponentInstance} from '../runner/runner';
 import {requestCredentials, isPermissionError} from '../../services/permissions/permissions-service';
+import {config} from '../../config';
 
 const AUTO_PARAMS = [{
   name: 'START_TIME',
@@ -21,7 +22,7 @@ function renderActions(scope, editorComponentInstance, runnerComponentInstance, 
   if (!transclude.isSlotFilled('actions')) {
     return inject('$compile')(`
       <ul class="bi-dropdown-menu">
-        <li ng-click="events.onRunAndDownload()">
+        <li class="bi-align bi-s-h--x05" ng-click="events.onRunAndDownload()">
           <i class="bi-icon">file_download</i>
           <div>Run and download</div>
         </li>
@@ -41,10 +42,12 @@ export default () => {
     template,
     require: 'ngModel',
     transclude: {
-      actions: '?actions'
+      actions: '?actions',
+      controls: '?controls'
     },
     scope: {
       version: '=',
+      type: '=',
       runner: '=',
       bsrOptions: '=',
       onEditorLoad: '&',
@@ -198,7 +201,8 @@ export default () => {
                             isAutoParam: false,
                             isKeyOnlyParam: true,
                             options: null
-                          }), meta: type};
+                          }), meta: type
+                        };
                       })
                     ];
                   }
@@ -210,7 +214,7 @@ export default () => {
               runnerInstance.on('error', (rowNumber, msg) => editorInstance.getAnnotator().showError(rowNumber, msg));
 
               if (!scope.readonly && scope.options.useAutocomplete) {
-                setupCompleters(editorInstance).catch(console.error);
+                setupCompleters(editorInstance, scope.type, config.get().apiBasePath).catch(console.error);
               }
 
               if (!scope.readonly && scope.options.showSyntaxErrors) {

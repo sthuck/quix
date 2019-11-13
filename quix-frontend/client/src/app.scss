@@ -2,17 +2,47 @@
 @import './lib/ui/assets/css/def/defaults.def';
 @import './lib/ui/assets/css/def/icon.def';
 
-quix-breadcrumbs {
-  .bi-action {
-    color: $white !important;
+body {
+  background-color: $light-bg;
+}
+
+bi-app {
+  $splashWidth: 150px;
+  $splashHeight: 208px;
+
+  >.quix-splash {
+    position: absolute;
+    width: $splashWidth;
+    height: $splashHeight;
+    top: 50%;
+    left: 50%;
+    margin: (-$splashHeight / 2) 0 0 (-$splashWidth / 2);
   }
+
+  .quix-splash-logo {
+    width: $splashWidth;
+    filter: drop-shadow(2px 2px 5px $grey--400);
+  }
+}
+
+.quix-content {
+  box-shadow: inset 0 1px 6px rgba(0, 0, 0, .05);
+}
+
+.quix-user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 24px;
 }
 
 .quix-checkbox {
   display: block;
-  width: 23px;
   line-height: 0;
-  overflow: hidden;
+
+  .bi-action {
+    width: 30px;
+    overflow: hidden;
+  }
 
   i {
     transition: color, .1s;
@@ -26,15 +56,6 @@ quix-breadcrumbs {
       }
     }
   }
-}
-
-.quix-round-icon {
-  border-radius: 100px;
-  background-color: $blue-grey--700;
-}
-
-.quix-meta-text {
-  color: $grey--500;
 }
 
 .quix-popup {
@@ -67,15 +88,15 @@ quix-breadcrumbs {
   right: 15px;
   bottom: 15px;
   display: flex;
-  width: 60px;
-  height: 60px;
+  width: 60px !important;
+  height: 60px !important;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: $red--300;
-  border-radius: 50%;
+  background-color: $primary;
+  border-radius: 50% !important;
   cursor: pointer;
-  box-shadow: 1px 1px 10px $grey--500;
+  z-index: 100;
 
   &:before {
     @extend %icon;
@@ -86,25 +107,13 @@ quix-breadcrumbs {
   }
 }
 
-.bi-section,
-.bi-section--300 {
-  .bi-section-header {
-    .quix-meta-text {
-      color: $grey--400;
-    }
-  }
-
-  .bi-section-content {
-    .quix-empty-state {
-      margin-top: -60px;
-    }
-
-    .quix-section-controls {
-      height: 30px;
-    }
+.bi-section {
+  .quix-empty-state {
+    margin-top: -100px;
   }
 }
 
+.bi-table-container.bi-table--nav,
 bi-tbl.bi-table--nav {
   td {
     [contenteditable="false"] {
@@ -124,23 +133,13 @@ bi-tbl.bi-table--nav {
     padding: 0;
 
     .quix-checkbox {
-      width: 42px;
-      margin-top: 1px;
-      padding: 8px;
+      width: 30px;
+      margin: 6px;
     }
   }
 
   .name-column {
     padding-left: 0;
-  }
-}
-
-.bi-empty-state {
-  .bi-empty-state-icon {
-    .bi-icon {
-      font-size: 80px;
-      color: $grey--500;
-    }
   }
 }
 

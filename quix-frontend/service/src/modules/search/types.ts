@@ -1,6 +1,6 @@
-import {DbNote} from '../../entities';
+import {INote} from 'shared';
 export interface ISearch {
-  search(content: string): Promise<DbNote[]>;
+  search(content: string): Promise<[INote[], number]>;
 }
 
 export enum SearchTypes {
@@ -9,6 +9,11 @@ export enum SearchTypes {
   noteName = 'name',
   content = 'content',
 }
+export type SpeciaSearchTypes =
+  | SearchTypes.noteName
+  | SearchTypes.type
+  | SearchTypes.user;
+
 export enum searchTextType {
   PHRASE,
   WORD,

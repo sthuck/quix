@@ -1,5 +1,6 @@
 import UrlPattern from 'url-pattern';
 import {
+  IUser,
   IFile,
   INotebook,
   INote,
@@ -9,44 +10,165 @@ import {
   createFolder,
   createFile,
   createNote,
-  createFolderPayload
-} from '../../shared';
+  createFolderPayload,
+} from '@wix/quix-shared';
 
 const mocks = {
   '/api/user': () => createUser(),
   '/api/events': () =>[200],
+  '/api/users': () =>[
+    createMockUser({
+      id: 'valery@wix.com',
+      email: 'valery@wix.com',
+      avatar: 'http://quix.wix.com/assets/user.svg',
+      name: 'Valery Frolov',
+      rootFolder: '6c98fe9a-39f7-4674-b003-70f9061bbee5',
+      dateCreated: Date.now(),
+      dateUpdated: Date.now(),
+    }),
+    createMockUser({
+      id: 'anton@wix.com',
+      email: 'anton@wix.com',
+      avatar: 'http://quix.wix.com/assets/user.svg',
+      name: 'Anton Podolsky',
+      rootFolder: 'de6908dd-7f1e-4803-ab0d-5f9d6a496609',
+      dateCreated: Date.now(),
+      dateUpdated: Date.now(),
+    }),
+  ],
   // '/api/files': () => [404, {message: 'Couldn\'t fetch notebooks'}],
+  // '/api/files': () => [500, {message: 'Failed to fetch files'}],
+  '/api/files': () => createMockFiles(),
+  // '/api/files': () => createMockFiles([createMockFolder({id: '10'}), createMockFile({id: '11'})]),
   '/api/files/404': () => [404, {message: 'Folder not found'}],
-  '/api/notebook/404': () => [404, {message: 'Notebook not found'}],
-  '/api/files': () => createMockFiles([
-    createMockFolder({id: '10'}),
-    createMockFile({id: '11'}),
-  ]),
+  '/api/files/500': () => [500, {message: 'Couldn\'t fetch folder'}],
   '/api/files/:id': ({id}) => createMockFolderPayload([
     createMockFolder({id: '100'}),
     createMockFile({id: '101'})
-  ], {id}),
+  ], {
+    id,
+    ownerDetails: {
+      avatar: 'http://quix.wix.com/assets/user.svg'
+    } as any
+  }),
+  '/api/notebook/404': () => [404, {message: 'Notebook not found'}],
+  '/api/notebook/500': () => [500, {message: 'Couldn\'t fetch notebook'}],
   '/api/notebook/:id': ({id}) => createMockNotebook([
-    createMockNote(id, {id: '1001'}),
-    createMockNote(id, {id: '1002'}),
-    createMockNote(id, {id: '1003'}),
+    createMockNote(id, {id: '1001', name: 'Runnable', content: 'do success'}),
+    createMockNote(id, {id: '1002', name: 'Runnable (timeout)', content: 'do success timeout=200'}),
+    createMockNote(id, {id: '1003', name: 'Runnable (error)', content: 'do error'}),
     createMockNote(id, {id: '1004'}),
     createMockNote(id, {id: '1005'}),
-  ], {id}),
-  '/api/search/none': () => [],
+    createMockNote(id, {id: '1006'}),
+  ], {
+    id,
+    ownerDetails: {
+      avatar: 'http://quix.wix.com/assets/user.svg'
+    } as any
+  }),
+  '/api/favorites': () => [
+    createMockFile({
+      id: '100',
+      isLiked: true,
+      ownerDetails: {
+        id: 'valery@wix.com',
+        email: 'valery@wix.com',
+        avatar: 'http://quix.wix.com/assets/user.svg',
+        name: 'Valery Frolov',
+        rootFolder: '6c98fe9a-39f7-4674-b003-70f9061bbee5',
+        dateCreated: Date.now(),
+        dateUpdated: Date.now(),
+      }
+    }),
+    createMockFile({
+      id: '101',
+      isLiked: true,
+      ownerDetails: {
+        id: 'anton@wix.com',
+        email: 'anton@wix.com',
+        avatar: 'http://quix.wix.com/assets/user.svg',
+        name: 'Anton Podolsky',
+        rootFolder: 'de6908dd-7f1e-4803-ab0d-5f9d6a496609',
+        dateCreated: Date.now(),
+        dateUpdated: Date.now(),
+      }
+    })
+  ],
+  '/api/search/none': () => ({count: 0, notes: []}),
+  '/api/search/500': () => [500, {message: 'Search error'}],
   '/api/search/:text': ({text}) => {
     const res = [createMockNote('1'), createMockNote('2'), createMockNote('3')];
-    res.forEach(note => note.content = `select 1 as ${text}`);
-    return res;
+    res.forEach(note => note.content = `SELECT
+    date_trunc('year', shipdate) as ${text}
+    , shipmode
+    , sum(quantity) quantity
+FROM $schema.lineitem
+GROUP BY 1, 2
+ORDER BY 1
+`);
+
+    // return {notes: [], count: 0};
+    return {notes: res, count: 365};
   },
-  '/api/db/explore': () => [{
+  // '/api/db/presto/explore': () => [500, {message: 'Failed to fetch DB tree'}],
+  // '/api/db/presto/explore': () => [],
+  '/api/db/:type/explore': ({type}) => {
+    if (type === 'presto') {
+      return [{
+        name: 'catalog',
+        type: 'catalog',
+        children: [{
+          name: 'schema',
+          type: 'schema',
+          children: [{
+            name: 'table_with_a_very_looooooooooooooooong_name',
+            type: 'table',
+            children: []
+          }]
+        }]
+      }, {
+        name: 'catalog2',
+        type: 'catalog',
+        children: []
+      }]
+    } 
+
+    return [{
+      name: '__root',
+      type: 'catalog',
+      children: [{
+        name: 'schema',
+        type: 'schema',
+        children: [{
+          name: 'table_with_a_very_looooooooooooooooong_name',
+          type: 'table',
+          children: []
+        }]
+      }, {
+        name: 'schema2',
+        type: 'schema',
+        children: []
+      }]
+    }];
+  },
+  '/api/db/:type/explore/:catalog/:schema/:table': ({table}) => ({
+    children: [{name: `column_of_${table}`, dataType: 'varchar'}]
+  }),
+  '/api/db/:type/autocomplete': () => ({
+    catalogs: ['catalog', 'catalog2'],
+    schemas: ['schema'],
+    tables: ['table'],
+    columns: ['column'],
+  }),
+  // '/api/db/:type/search': () => [],
+  '/api/db/:type/search': () => [{
     name: 'catalog',
     type: 'catalog',
     children: [{
       name: 'schema',
       type: 'schema',
       children: [{
-        name: 'table',
+        name: 'table_with_a_very_looooooooooooooooong_name',
         type: 'table',
         children: []
       }]
@@ -54,23 +176,34 @@ const mocks = {
   }, {
     name: 'catalog2',
     type: 'catalog',
-    children: []
+    children: [{
+      name: 'schema2',
+      type: 'schema',
+      children: [{
+        name: 'table2_with_a_very_looooooooooooooooong_name',
+        type: 'table',
+        children: []
+      }]
+    }]
   }],
-  '/api/db/explore/:schema/:catalog/:table': () => ({
-    children: [{name: 'column', dataType: 'varchar'}]
-  }),
-  '/api/db/autocomplete': () => ({
-    catalogs: ['catalog', 'catalog2'],
-    schemas: ['schema'],
-    tables: ['table'],
-    columns: ['column'],
-  }),
 };
 
 let mockOverrides = {};
 
+export const createMockUser = (props: Partial<IUser> = {}) => {
+  return createUser(props);
+}
+
 export const createMockRootFolder = (props: Partial<IFile> = {}) => {
-  return createFolder([], {id: '1', name: 'My notebooks', owner: 'local@quix.com', ...props});
+  return createFolder([], {
+    id: '1',
+    name: 'My notebooks',
+    owner: 'local@quix.com',
+    ownerDetails: {
+      avatar: 'http://quix.wix.com/assets/user.svg'
+    } as any,
+    ...props
+  });
 }
 
 export const createMockFile = (props: Partial<IFile> = {}) => {

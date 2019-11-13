@@ -3,8 +3,8 @@ import './notebook.scss';
 
 import {initNgScope} from '../../lib/core';
 import {Store} from '../../lib/store';
-import {Instance as App} from '../../lib/app';
-// import {IStateComponentConfig} from '../../lib/app/services/plugin-instance';
+import {App} from '../../lib/app';
+import {IStateComponentConfig} from '../../lib/app/services/plugin-builder';
 import {cache} from '../../store';
 import {initEvents} from '../../services/scope';
 import {IScope} from './notebook-types';
@@ -15,7 +15,7 @@ import * as Scope from './notebook-scope';
 import * as Events from './notebook-events';
 
 export default (app: App, store: Store) => ({
-  name: 'base.notebook:id',
+  name: 'notebook:id',
   template,
   url: Url,
   scope: Scope,
@@ -51,8 +51,8 @@ export default (app: App, store: Store) => ({
   link: scope => {
     const conf = initNgScope(scope)
       .withOptions('$stateOptions', {isNew: false})
-      .withVM(VM());
+      .withVM(VM(app));
 
     initEvents(scope, conf, app, store, Events);
   }
-}) as any;
+}) as IStateComponentConfig;

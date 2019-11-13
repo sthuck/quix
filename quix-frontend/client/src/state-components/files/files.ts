@@ -3,8 +3,8 @@ import './files.scss';
 
 import {initNgScope} from '../../lib/core';
 import {Store} from '../../lib/store';
-import {Instance as App} from '../../lib/app';
-import {IStateComponentConfig} from '../../lib/app/services/plugin-instance';
+import {App} from '../../lib/app';
+import {IStateComponentConfig} from '../../lib/app/services/plugin-builder';
 import {cache} from '../../store';
 import {initEvents} from '../../services/scope';
 import {IScope} from './files-types';
@@ -14,7 +14,7 @@ import * as Scope from './files-scope';
 import * as Events from './files-events';
 
 export default (app: App, store: Store) => ({
-  name: 'base.files:id',
+  name: 'files:id',
   template,
   url: {},
   scope: Scope,
@@ -23,6 +23,8 @@ export default (app: App, store: Store) => ({
     await cache.folder.fetch(params.id);
   
     syncUrl();
+
+    scope.isRoot = !params.id;
 
     store.subscribe('folder', ({folder, files, error, view, permissions}) => {
       scope.folder = folder;
@@ -33,7 +35,7 @@ export default (app: App, store: Store) => ({
     }, scope);
 
     store.subscribe('folder.folder.name', (name: string) => {
-      setTitle(() => [name]);
+       setTitle(() => params.id ? [name] : [app.getTitle(), 'My notebooks']);
     }, scope);
 
     store.subscribe('folder.error', error => {

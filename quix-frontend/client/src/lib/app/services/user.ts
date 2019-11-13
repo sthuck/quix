@@ -33,28 +33,37 @@ export class Permission {
   }
 }
 
+const addPrefixSlash = (s: string) => s[0] === '/' ? s : '/' + s;
+
 export class User {
   private email: string;
+  private name: string;
   private avatar: string;
   private loggedIn;
   private role: string;
   private readonly permission = new Permission();
 
-  fetch(appId?: string) {
-    return inject('$resource')(`${appId ? `/${appId}` : ''}/api/user`).get().$promise.then(data => this.set(data.payload || data));
+  fetch(apiBasePath?: string) {
+    return inject('$resource')(`${apiBasePath ? addPrefixSlash(apiBasePath) : ''}/api/user`).get().$promise
+      .then(data => this.set(data.payload || data));
   }
 
-  set({email, avatar, role}: Record<string, string>) {
+  set({email, name, avatar, role}: Record<string, string>) {
     this.email = email;
+    this.name = name;
     this.avatar = avatar;
     this.role = role || 'user';
-    this.loggedIn = true;
+    this.loggedIn = null;
 
     return this;
   }
 
   getEmail() {
     return this.email;
+  }
+
+  getName() {
+    return this.name;
   }
 
   getAvatar() {
@@ -71,5 +80,9 @@ export class User {
 
   isLoggedIn() {
     return this.loggedIn;
+  }
+
+  toggleLoggedIn(loggedIn) {
+    return this.loggedIn = loggedIn;
   }
 }

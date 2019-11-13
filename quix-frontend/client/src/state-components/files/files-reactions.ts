@@ -1,12 +1,16 @@
 import {IScope} from './files-types';
 import {initTableFields} from './files-table-fields';
-import {IFolder, IFile} from '../../../../shared';
+import {IFolder, IFile} from '@wix/quix-shared';
 
 export function setFolder(scope: IScope, folder: IFolder) {
   scope.vm.state
     .set('Result', !!folder, {folder})
     .then(() => {
       scope.vm.breadcrumbs = [...folder.path, {id: folder.id, name: folder.name}];
+
+      if (!scope.permissions.edit) {
+        scope.vm.breadcrumbs[0].name = `${folder.ownerDetails.name}'s notebooks`;
+      }
     })
     .else(() => scope.vm.state.value({folder}));
 }

@@ -1,7 +1,7 @@
 import {IModule} from 'angular';
 import {inject, srv} from '../../core';
 import {User} from './user';
-import {getAuthStates} from './auth';
+import {Options} from '../types';
 
 const EVENT_MAP = {
   start: 'stateChangeStart',
@@ -14,20 +14,42 @@ export type TEventType = 'start' | 'success' | 'visible';
 export type INavigatorCallback = (params: any, stateName: string) => any;
 
 export default class Navigator extends srv.eventEmitter.EventEmitter {
-  private states = [];
+  private readonly states = [];
+  private prefix;
+  private resolveLogin: (data: any) => any;
 
-  constructor(private readonly options: {
-    statePrefix: string;
-    defaultUrl: string;
-    homeState: string;
-    auth?: {googleClientId: string};
-  }) {
+  constructor(private readonly options: Options) {
     super();
   }
 
-  init(appId: string, user: User, ngApp: IModule) {
+  init(user: User, ngApp: IModule) {
+    this.prefix = this.options.statePrefix;
+
     if (this.options.auth) {
-      this.states = getAuthStates(appId, this.options.auth.googleClientId, user);
+      const self = this;
+
+      this.states.push({
+        name: 'auth',
+        options: {
+          abstract: true,
+          template: '<div class="bi-c-h bi-grow" ui-view bi-state-loader></div>',
+          resolve: {
+            user() {
+               return user.fetch(self.options.apiBasePath)
+                .catch(() => {
+                  user.toggleLoggedIn(false);
+                  return new Promise(resolve => self.resolveLogin = resolve)
+                })
+                .then((data: any) => {
+                  user.set(data.payload || data);
+                  user.toggleLoggedIn(true);
+                });
+            }
+          }
+        }
+      });
+
+      this.prefix = `auth.${this.prefix}`;
     }
 
     ngApp.config([
@@ -45,7 +67,7 @@ export default class Navigator extends srv.eventEmitter.EventEmitter {
             console.warn(e);
           }
         });
-    }]);
+      }]);
 
     ngApp.run(['$rootScope', (scope) => {
       scope.$on('$stateChangeStart', (e, state, params, fromState) => {
@@ -62,20 +84,26 @@ export default class Navigator extends srv.eventEmitter.EventEmitter {
     return this;
   }
 
+  finishLogin(data: any) {
+    if (this.resolveLogin) {
+      this.resolveLogin(data);
+    }
+  }
+
   getStatePrefix() {
-    return this.options.statePrefix;
+    return this.prefix;
   }
 
   state(name, options) {
-    this.states.push({name: `${this.options.statePrefix}${name}`, options});
+    this.states.push({name: `${this.prefix}${name ? `.${name}` : ''}`, options});
   }
 
   go(state: string, params?: Object, options: {reload: boolean | string} = {reload: false}): PromiseLike<any> {
     if (typeof options.reload === 'string') {
-      options.reload = `${this.options.statePrefix}${options.reload}`;
+      options.reload = `${this.prefix}.${options.reload}`;
     }
 
-    return inject('$state').go(`${this.options.statePrefix}${state}`, params, options);
+    return inject('$state').go(`${this.prefix}.${state}`, params, options);
   }
 
   getUrl(state?: string, params?: Object): string {
@@ -85,7 +113,7 @@ export default class Navigator extends srv.eventEmitter.EventEmitter {
   }
 
   goHome() {
-    return inject('$state').go(`${this.options.statePrefix}${this.options.homeState}`);
+    return inject('$state').go(`${this.prefix}.${this.options.homeState}`);
   }
 
   listen(state: string | string[], type: TEventType, fn: INavigatorCallback, scope?) {
@@ -94,7 +122,7 @@ export default class Navigator extends srv.eventEmitter.EventEmitter {
     let otherwise: INavigatorCallback = null;
 
     this.on(eventName, (stateName = '', params = {}) => {
-      stateName = stateName.replace(this.getStatePrefix(), '');
+      stateName = stateName.replace(`${this.getStatePrefix()}.`, '');
       if (states.some(s => stateName.indexOf(s) >= 0)) {
         fn(params, stateName);
       } else if (otherwise) {

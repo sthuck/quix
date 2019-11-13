@@ -1,16 +1,13 @@
 import template from './destination-picker.html';
 import './destination-picker.scss';
 
-import {last} from 'lodash';
 import {initNgScope, createNgModel} from '../../lib/core';
 import {Store} from '../../lib/store';
-import {Instance} from '../../lib/app';
-import {IFile, FileType} from '../../../../shared';
+import {App} from '../../lib/app';
+import {IFile, FileType} from '@wix/quix-shared';
 import {IScope} from './destination-picker-types';
 import {cache} from '../../store';
-import {
-  StateManager
-} from '../../services';
+import {StateManager, fetchRoot, fetchFile, fetchFileParent} from '../../services';
 
 enum States {
   Initial,
@@ -19,30 +16,40 @@ enum States {
   Content
 }
 
-const listenToNavChange = (scope: IScope, app: Instance, fileExplorer) => {
+const listenToNavChange = (scope: IScope, app: App, fileExplorer) => {
   app.getNavigator()
-  .listen(['base.files', 'base.notebook'], 'success', ({id}: {id: string}) => {
-    const files = scope.vm.state.value().files;
-    let file = files.find(f => f.id === id);
-    
-    if (file && file.type === FileType.notebook) {
-      id = last<any>(file.path).id;
-      file = files.find(f => f.id === id);
-    }
+    .listen(['files', 'notebook'], 'success', async ({id}: {id: string}, state: string) => {
+      let file = await fetchFile(id) || await fetchRoot();
 
-   if (file) {
-     fileExplorer.setActive(file);
-     scope.model = file;
-   }
-  }, scope)
-  .otherwise(() => fileExplorer.clearActive());
+      if (!file) {
+        return;
+      }
+
+      if (scope.context === 'folder' && file.type === FileType.notebook) {
+        file = await fetchFileParent(file.id);
+      }
+
+      if (file) {
+        fileExplorer.setActive(file);
+        scope.model = file;
+
+        if (file.type === FileType.folder) {
+          scope.events.onFolderClick(file);
+        } else if (file.type === FileType.notebook) {
+          scope.events.onFileClick(file);
+        }
+      }
+    }, scope)
+    .otherwise(() => fileExplorer.clearActive());
 }
 
-export default (app: Instance, store: Store) => () => ({
+export default (app: App, store: Store) => () => ({
   restrict: 'E',
   template,
   require: 'ngModel',
-  scope: {},
+  scope: {
+    context: '@'
+  },
   link: {
     async pre(scope: IScope, element, attr, ngModel) {
       createNgModel(scope, ngModel);
@@ -58,10 +65,10 @@ export default (app: Instance, store: Store) => () => ({
             listenToNavChange(scope, app, fileExplorer);
           },
           onFileClick(file) {
-            scope.model = file;
+            scope.model = scope.context === 'notebook' ? file : null;
           }, 
           onFolderClick(folder) {
-            scope.model = folder;
+            scope.model = scope.context === 'folder' ? folder : null;
           }
         });
 
@@ -69,7 +76,9 @@ export default (app: Instance, store: Store) => () => ({
       store.subscribe('files.files', (files: IFile[]) => {
         scope.vm.state
           .force('Result', !!files, {files})
-          .set('Content', () => files.length > 1, () => ({tree: files.filter(file => file.type === FileType.folder)}));
+          .set('Content', () => files.length > 0, () => ({
+            tree: scope.context === 'folder' ? files.filter(file => file.type === FileType.folder) : files
+          }));
       }, scope);
 
       store.subscribe('files.error', (error: any) => {

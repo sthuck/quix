@@ -1,27 +1,41 @@
-import * as Runners from '../../services/runners';
+import {Runner} from '../../lib/runner';
+import {INotebook, INote} from '@wix/quix-shared';
 
-export const search = (searchText: string, origin: 'user' | 'machine' = 'machine') => ({
+export const setSearchText = (searchText: string, origin: 'user' | 'machine' = 'machine') => ({
   type: 'app.setSearchText',
   searchText,
   origin
 });
 
-export const addRunner = (id: string, runner: string, origin: 'user' | 'machine' = 'machine') => {
-  Runners.addRunner(id, runner);
+export const setSearchPage = (searchPage: number, origin: 'user' | 'machine' = 'machine') => ({
+  type: 'app.setSearchPage',
+  searchPage,
+  origin
+});
 
-  return {
-    type: 'app.addRunner',
-    id,
-    origin
-  };
-};
+export const setImportType = (importType: string, origin: 'user' | 'machine' = 'machine') => ({
+  type: 'app.setImportType',
+  importType,
+  origin
+});
 
-export const removeRunner = (id: string, origin: 'user' | 'machine' = 'machine') => {
-  Runners.removeRunner(id);
+export const setImportValue = (importValue: string, origin: 'user' | 'machine' = 'machine') => ({
+  type: 'app.setImportValue',
+  importValue,
+  origin
+});
 
-  return {
-    type: 'app.removeRunner',
-    id,
-    origin
-  };
-};
+export const addRunner = (id: string, runner: Runner, note: INote, notebook: INotebook, origin: 'user' | 'machine' = 'machine') => ({
+  type: 'app.addRunner',
+  id,
+  origin,
+  runner,
+  note,
+  notebook
+})
+
+export const removeRunner = (id: string, origin: 'user' | 'machine' = 'machine') => ({
+  type: 'app.removeRunner',
+  id,
+  origin
+});

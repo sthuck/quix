@@ -16,24 +16,26 @@ export interface IDbNode {
 export class DbInfo {
   private readonly $http: angular.IHttpService = inject('$http');
 
+  constructor(private readonly type: string, private readonly apiBasePath = '') {}
+
   fetchAllKeywords(): Promise<IAutocomplete[]> {
     return this.$http<any>({
-      url: `/api/db/autocomplete`,
+      url: `${this.apiBasePath}/api/db/${this.type}/autocomplete`,
       method: 'GET'
     })
-    .then(({data}) => Object.keys(data).reduce((res, meta) => {
-      data[meta].forEach((value: string) => res.push({meta, value}));
-      return res;
-    }, []))
-    .catch(e => console.log(e)) as any;
+      .then(({data}) => Object.keys(data).reduce((res, meta) => {
+        data[meta].forEach((value: string) => res.push({meta, value}));
+        return res;
+      }, []))
+      .catch(e => console.log(e)) as any;
   }
 
   fetchSchema(): Promise<IDbNode[]> {
     return this.$http<any>({
-      url: `/api/db/explore`,
+      url: `${this.apiBasePath}/api/db/${this.type}/explore`,
       method: 'GET'
     })
-    .then(({data}) => data)
-    .catch(e => []) as any;
+      .then(({data}) => data)
+      .catch(e => []) as any;
   }
 }

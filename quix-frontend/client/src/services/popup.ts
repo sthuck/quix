@@ -31,7 +31,7 @@ const openPopup = (html: string, scope, locals: Record<any, any> = {}) => {
 
   const element = inject('$compile')(`
     <div 
-      class="quix-popup bi-c-h"
+      class="quix-popup bi-c-h bi-theme--lighter"
       bi-maximizable="true"
       bm-options="::{offIcon: 'close'}"
       on-load="events.onLoad(instance)"
@@ -54,14 +54,16 @@ export const openSearchResults = (scope) => {
   return closeFn;
 }
 
-export const openTempQuery = (scope, code: string = '', autorun = false) => {
+export const openTempQuery = (scope, type?: string, code: string = '', autorun = false) => {
   return openPopup(`
     <quix-temp-query
       class="bi-c-h bi-grow"
+      type="type"
       code="code"
       autorun="autorun"
     ></quix-temp-query>`, 
     scope, {
+      type,
       code,
       autorun
     }

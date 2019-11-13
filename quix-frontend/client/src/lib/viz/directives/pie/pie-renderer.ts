@@ -1,11 +1,8 @@
 import {IMeta, IFilterData} from '../../services/chart/chart-conf';
-import * as echarts from 'echarts/lib/echarts';
-import 'echarts/lib/chart/pie'
-import 'echarts/lib/component/tooltip'
-import 'echarts/lib/component/title'
-import 'echarts/lib/component/legend'
 
-export class ChartRenderer {
+declare const Plotly;
+
+export class PieRenderer {
   private chart = null;
 
   constructor(private readonly container) {
@@ -17,31 +14,38 @@ export class ChartRenderer {
   }
 
   public draw(data: any[], filteredMeta: IMeta, meta: IMeta, filter: IFilterData) {
-    const width = this.container.width();
-    const height = this.container.height();
-    const size = Math.min(width, height);
-    data.map((series, i) => {
-      const slice = 100 / (data.length * 2);
-      series.radius = size / (data.length * 4)
-      series.center = [`${(slice * (2*i+1))}%`, '50%'];
-    })
-    this.chart = echarts.init(this.container.get(0));
-    this.chart.clear();
-    this.chart.setOption({
-      title: {
-        text: null
+    const xAxisType = 'pie';
+
+    data = data.map(serie => ({
+      ...serie,
+      type: xAxisType,
+      labels: serie.x,
+      values: serie.y,
+    }));
+
+    const layout = {
+      margin: {
+        l: 30,
+        r: 30,
+        b: 30,
+        t: 30,
+        pad: 4,
       },
       legend: {
-        show: data.length > 1,
-        data: data.map(series => series.name),
-        bottom: true
+        'orientation': 'v',
       },
-      series: data
+    };
+
+    if (this.chart) {
+      this.destroy();
+    }
+
+    this.chart = Plotly.newPlot(this.container.get(0), data, layout, {
+      displaylogo: false,
     });
-    this.chart.resize();
   }
 
   public destroy() {
-    this.chart.dispose();
+    Plotly.purge(this.container.get(0));
   }
 }

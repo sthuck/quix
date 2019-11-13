@@ -1,7 +1,7 @@
 import {values, reject} from 'lodash';
 import {combineReducers} from 'redux';
 import {IBranch} from '../../lib/store';
-import {Instance} from '../../lib/app';
+import {App} from '../../lib/app';
 import {
   IFile,
   IFolder,
@@ -10,7 +10,7 @@ import {
   clientFileReducer,
   clientFileListReducer,
   composeReducers
-} from '../../../../shared';
+} from '@wix/quix-shared';
 
 import {getFolderPermissions, getDefaultPermissions, IPermissions} from '../../services';
 
@@ -19,7 +19,7 @@ export interface IView {
   markedList: IFile[];
 }
 
-export default (app: Instance): IBranch => register => {
+export default (app: App): IBranch => register => {
   const folder = composeReducers(
     clientFileReducer,
     (state: IFolder = null, action: any) => {

@@ -1,8 +1,8 @@
-import {initNgScope, createNgModel, inject} from '@wix/bi-core';
+import {initNgScope, createNgModel} from '../../../../core';
 import {IFilterData, IFilterMeta} from '../../../services/chart/chart-conf';
 
-import * as template from './chart-filter.html';
-import './chart-filter.scss';
+import template from './pie-filter.html';
+import './pie-filter.scss';
 
 export interface IScope {
   model: IFilterData;
@@ -28,7 +28,8 @@ export default () => {
 
     link: {
       pre(scope: IScope, element, attr, ngModel) {
-        createNgModel(scope as any, ngModel).watchDeep(true);
+        createNgModel(scope as any, ngModel)
+          .watchDeep(true);
 
         initNgScope(scope).withEvents({
           onReset() {

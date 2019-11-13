@@ -5,16 +5,17 @@ import {
   HttpException,
   HttpStatus,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {FoldersService} from './folders.service';
 import {QuixEventBus} from '../../event-sourcing/quix-event-bus';
-import {FileActions, createFolder} from 'shared/entities/file';
-import uuid from 'uuid/v4';
-import {UserProfile, User} from 'modules/auth';
+import {IGoogleUser, User} from 'modules/auth';
 import {AuthGuard} from '@nestjs/passport';
+import {DemoModeInterceptor} from 'common/demo-mode-interceptor';
 
 @Controller('/api')
 @UseGuards(AuthGuard())
+@UseInterceptors(DemoModeInterceptor)
 export class FoldersController {
   constructor(
     private foldersService: FoldersService,
@@ -22,35 +23,19 @@ export class FoldersController {
   ) {}
 
   @Get('files')
-  async getFullTree(@User() user: UserProfile) {
+  async getFullTree(@User() user: IGoogleUser) {
     const {email} = user;
-    let list = await this.foldersService.getFilesForUser(email);
-
-    if (!list.length) {
-      await this.createRootFolder(email);
-      list = await this.foldersService.getFilesForUser(email);
-    }
+    const list = await this.foldersService.getFilesForUser(email);
 
     return list;
   }
 
   @Get('files/:id')
-  async GetSpecificFolder(@Param('id') id: string) {
+  async getSpecificFolder(@Param('id') id: string) {
     const folder = this.foldersService.getFolder(id);
     if (!folder) {
       throw new HttpException(`Can't find folder`, HttpStatus.NOT_FOUND);
     }
     return folder;
-  }
-
-  createRootFolder(user: string) {
-    const id = uuid();
-    return this.quixEventBus.emit({
-      ...FileActions.createFile(
-        id,
-        createFolder([], {id, name: 'My notebooks'}),
-      ),
-      user,
-    });
   }
 }

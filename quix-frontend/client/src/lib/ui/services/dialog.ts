@@ -13,6 +13,7 @@ export interface IDialog extends ng.IPromise<any> {
 export interface IDialogOptions {
   html: string;
   title?: string;
+  subTitle?: string;
   icon?: string;
   showCloseAction?: boolean;
   onConfirm?(scope): any;
@@ -30,14 +31,14 @@ function createScope(deferred, scope?, locals?) {
       deferred.reject();
     },
     resolve() {
-      const res = this.onConfirm();
+      const res = this.onConfirm(scope);
 
       if (res && res.then) {
         scope.dialogError = null;
         scope.dialogResolving = true;
 
         res
-          .then(() => deferred.resolve(scope), e => scope.dialogError = e)
+          .then(r => deferred.resolve(r, scope), e => scope.dialogError = e)
           .finally(() => scope.dialogResolving = false);
       } else {
         deferred.resolve(scope);
@@ -59,16 +60,19 @@ function showDialog(scope, htmlOrOptions: string | IDialogOptions) {
     options = {
       ...htmlOrOptions,
       html:  `
-        <dialog>
-          <dialog-title>${htmlOrOptions.title}</dialog-title>
+        <dialog class="bi-theme--lighter">
+          <dialog-title class="bi-align bi-s-h">
+            ${htmlOrOptions.icon ? `
+            <i
+              class="bi-dialog-icon bi-icon"
+              ng-class="dialogOptions.iconClass"
+            >${htmlOrOptions.icon}</i>
+          ` : ''}
+            <span>${htmlOrOptions.title}</span>
+          </dialog-title>
+          ${htmlOrOptions.subTitle ? `<dialog-subtitle class="bi-muted">${htmlOrOptions.subTitle}</dialog-subtitle>` : ''}
           <dialog-content>
             <div class="bi-align bi-s-h">
-              ${htmlOrOptions.icon ? `
-                <i
-                  class="bi-dialog-icon bi-icon"
-                  ng-class="dialogOptions.iconClass"
-                >${htmlOrOptions.icon}</i>
-              ` : ''}
               <div>${htmlOrOptions.html}</div>
             </div>  
           </dialog-content>

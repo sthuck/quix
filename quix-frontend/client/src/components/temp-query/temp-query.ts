@@ -3,20 +3,27 @@ import './temp-query.scss';
 
 import {initNgScope} from '../../lib/core';
 import {Store} from '../../lib/store';
-import {Instance} from '../../lib/app';
+import {App} from '../../lib/app';
 import {IScope} from './temp-query-types';
+import { NotePlugin } from '../../services/plugins';
 
-export default (app: Instance, store: Store) => () => ({
+export default (app: App, store: Store) => () => ({
   restrict: 'E',
   template,
   scope: {
+    type: '<',
     code: '<',
     autorun: '<'
   },
   link: {
     async pre(scope: IScope) {
       initNgScope(scope)
-        .withVM({})
+        .withVM({
+          type: scope.type,
+          pluginFilter(plugin: NotePlugin) {
+            return plugin.getConfig().canCreate;
+          }
+        })
         .withEvents({
           onRunnerInstanceLoad(instance) {
             if (scope.autorun) {

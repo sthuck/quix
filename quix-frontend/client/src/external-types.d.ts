@@ -10,3 +10,7 @@ declare module NodeJS {
 }
 
 interface DedicatedWorkerGlobalScope {}
+
+interface Window {
+  quixConfig: any;
+}

@@ -8,13 +8,13 @@ import quix.api.execute._
 import quix.api.users.User
 
 import scala.collection.mutable.ListBuffer
-
+import Batch._
 class MultiBuilderTest extends SpecWithJUnit {
 
   class ctx extends Scope {
     val consumer = new TestConsumer[ExecutionEvent]
-    val builder = new MultiBuilder(consumer)
-    val query = ActiveQuery("id", "text", 1, User("test"), isCancelled = false, Map.empty)
+    val builder = new MultiBuilder[String](consumer)
+    val query = ActiveQuery[String]("id", Seq("text"), User("test"))
   }
 
   "MultiBuilder.start" should {
@@ -22,7 +22,7 @@ class MultiBuilderTest extends SpecWithJUnit {
       builder.start(query).runToFuture(Scheduler.global)
 
       eventually {
-        consumer.payloads must contain(Start(query.id, query.numOfQueries))
+        consumer.payloads must contain(Start(query.id, query.statements.size))
       }
     }
   }
@@ -69,7 +69,7 @@ class MultiBuilderTest extends SpecWithJUnit {
     }
 
     "send Progress if present in results during startSubQuery(queryId, code, results)" in new ctx {
-      val batch = Batch(List.empty, stats = Option(BatchStats("state", 100)))
+      val batch = Batch(List.empty).withPercentage(100)
       builder.startSubQuery("query-id", "code", batch).runToFuture(Scheduler.global)
 
       eventually {
@@ -78,7 +78,7 @@ class MultiBuilderTest extends SpecWithJUnit {
     }
 
     "send Progress on every batch during startSubQuery(queryId, code, results)" in new ctx {
-      val batch = Batch(List.empty, stats = Option(BatchStats("state", 100)))
+      val batch = Batch(List.empty).withPercentage(100)
       builder.startSubQuery("query-id", "code", batch).runToFuture(Scheduler.global)
       builder.startSubQuery("query-id", "code", batch).runToFuture(Scheduler.global)
 
@@ -162,7 +162,7 @@ class MultiBuilderTest extends SpecWithJUnit {
     }
 
     "send Progress if present in results during addSubQuery(queryId, results)" in new ctx {
-      val batch = Batch(List.empty, stats = Option(BatchStats("state", 100)))
+      val batch = Batch(List.empty).withPercentage(100)
       builder.addSubQuery("query-id", batch).runToFuture(Scheduler.global)
 
       eventually {
@@ -171,7 +171,7 @@ class MultiBuilderTest extends SpecWithJUnit {
     }
 
     "send Progress on every batch during addSubQuery(queryId, results)" in new ctx {
-      val batch = Batch(List.empty, stats = Option(BatchStats("state", 100)))
+      val batch = Batch(List.empty).withPercentage(100)
       builder.addSubQuery("query-id", batch).runToFuture(Scheduler.global)
       builder.addSubQuery("query-id", batch).runToFuture(Scheduler.global)
 

@@ -4,7 +4,6 @@
 import {Test, TestingModule} from '@nestjs/testing';
 import {
   getConnectionToken,
-  getCustomRepositoryToken,
   getRepositoryToken,
   TypeOrmModule,
 } from '@nestjs/typeorm';
@@ -15,17 +14,19 @@ import {
   DbNote,
   DbNotebook,
   FileTreeRepository,
+  DbFavorites,
+  DbUser,
 } from 'entities';
-import {AuthModule} from 'modules/auth/auth.module';
-import {FileActions, FileType, IFilePathItem} from 'shared/entities/file';
-import {createNotebook, NotebookActions} from 'shared/entities/notebook';
+import {MockDataBuilder} from '../../../test/builder';
 import {Connection, Repository} from 'typeorm';
-import * as uuid from 'uuid';
 import {EventSourcingModule} from './event-sourcing.module';
-import {DbAction} from './infrastructure/action-store/entities/db-action';
+import {DbAction} from './infrastructure/action-store/entities/db-action.entity';
 import {QuixEventBus} from './quix-event-bus';
+import {EntityType} from 'common/entity-type.enum';
 
 export class QuixEventBusDriver {
+  public mockBuilder: MockDataBuilder;
+
   constructor(
     public eventBus: QuixEventBus,
     public module: TestingModule,
@@ -34,23 +35,16 @@ export class QuixEventBusDriver {
     public eventsRepo: Repository<DbAction>,
     public folderRepo: Repository<DbFolder>,
     public fileTreeRepo: Repository<DbFileTreeNode>,
+    public favoritesRepo: Repository<DbFavorites>,
     private conn: Connection,
     private configService: ConfigService,
     private defaultUser: string,
-  ) {}
+  ) {
+    this.mockBuilder = new MockDataBuilder(defaultUser);
+  }
 
   static async create(defaultUser: string) {
-    let eventBus: QuixEventBus;
-    let module: TestingModule;
-    let notebookRepo: Repository<DbNotebook>;
-    let noteRepo: Repository<DbNote>;
-    let eventsRepo: Repository<DbAction>;
-    let folderRepo: Repository<DbFolder>;
-    let fileTreeRepo: FileTreeRepository;
-    let conn: Connection;
-    let configService: ConfigService;
-
-    module = await Test.createTestingModule({
+    const module = await Test.createTestingModule({
       imports: [
         ConfigModule,
         TypeOrmModule.forRootAsync({
@@ -62,6 +56,8 @@ export class QuixEventBusDriver {
               DbNote,
               DbNotebook,
               DbAction,
+              DbFavorites,
+              DbUser,
             ]),
           inject: [ConfigService],
         }),
@@ -71,14 +67,25 @@ export class QuixEventBusDriver {
       exports: [],
     }).compile();
 
-    eventBus = module.get(QuixEventBus);
-    notebookRepo = module.get(getRepositoryToken(DbNotebook));
-    noteRepo = module.get(getRepositoryToken(DbNote));
-    eventsRepo = module.get(getRepositoryToken(DbAction));
-    fileTreeRepo = module.get(getRepositoryToken(FileTreeRepository));
-    folderRepo = module.get(getRepositoryToken(DbFolder));
-    conn = module.get(getConnectionToken());
-    configService = module.get(ConfigService);
+    const eventBus: QuixEventBus = module.get(QuixEventBus);
+    const notebookRepo: Repository<DbNotebook> = module.get(
+      getRepositoryToken(DbNotebook),
+    );
+    const noteRepo: Repository<DbNote> = module.get(getRepositoryToken(DbNote));
+    const eventsRepo: Repository<DbAction> = module.get(
+      getRepositoryToken(DbAction),
+    );
+    const fileTreeRepo: FileTreeRepository = module.get(
+      getRepositoryToken(FileTreeRepository),
+    );
+    const folderRepo: Repository<DbFolder> = module.get(
+      getRepositoryToken(DbFolder),
+    );
+    const favoritesRepo: Repository<DbFavorites> = module.get(
+      getRepositoryToken(DbFavorites),
+    );
+    const conn: Connection = module.get(getConnectionToken());
+    const configService: ConfigService = module.get(ConfigService);
 
     return new QuixEventBusDriver(
       eventBus,
@@ -88,6 +95,7 @@ export class QuixEventBusDriver {
       eventsRepo,
       folderRepo,
       fileTreeRepo,
+      favoritesRepo,
       conn,
       configService,
       defaultUser,
@@ -105,6 +113,7 @@ export class QuixEventBusDriver {
     await this.clearNotes();
     await this.clearFolders();
     await this.clearNotebooks();
+    await this.clearFavorites();
     await this.conn.query(
       dbType === 'mysql'
         ? 'SET FOREIGN_KEY_CHECKS = 1'
@@ -112,54 +121,46 @@ export class QuixEventBusDriver {
     );
   }
 
-  createNotebookAction(
-    path: Partial<IFilePathItem>[] = [],
-    user = this.defaultUser,
-  ) {
-    const id = uuid.v4();
-    const action = {
-      ...NotebookActions.createNotebook(
-        id,
-        createNotebook(path as IFilePathItem[], {id}),
-      ),
-      user,
-    };
-    return [id, action] as const;
-  }
-
-  createFolderAction(
-    name: string,
-    path: {id: string}[],
-    user = this.defaultUser,
-  ) {
-    const id = uuid.v4();
-    const action = {
-      ...FileActions.createFile(id, {
-        id,
-        type: FileType.folder,
-        name,
-        path: path as IFilePathItem[],
-        isLiked: false,
-        owner: '',
-        dateCreated: 0,
-        dateUpdated: 0,
-      }),
-      user,
-    };
-    return [id, action] as const;
-  }
-
   getNotebook(id: string) {
     return {
       and: {
         expectToBeDefined: async () => {
-          const notebook = (await this.notebookRepo.findOne(id))!;
+          const notebook = await this.notebookRepo.findOneOrFail(id);
           expect(notebook).toBeDefined();
           return notebook;
         },
         expectToBeUndefined: async () => {
           const notebook = await this.notebookRepo.findOne(id);
           expect(notebook).not.toBeDefined();
+          return undefined;
+        },
+      },
+    };
+  }
+
+  getFavorite(owner: string, entityId: string, entityType: EntityType) {
+    return {
+      and: {
+        expectToBeDefined: async () => {
+          const favorite = await this.favoritesRepo.findOneOrFail({
+            entityId,
+            entityType,
+            owner,
+          });
+
+          expect(favorite).toBeDefined();
+
+          return favorite;
+        },
+        expectToBeUndefined: async () => {
+          const favorite = await this.favoritesRepo.findOne({
+            entityId,
+            entityType,
+            owner,
+          });
+
+          expect(favorite).not.toBeDefined();
+
           return undefined;
         },
       },
@@ -197,6 +198,10 @@ export class QuixEventBusDriver {
 
   async clearNotebooks() {
     return this.notebookRepo.delete({});
+  }
+
+  async clearFavorites() {
+    return this.favoritesRepo.delete({});
   }
 
   emitAsUser(eventBus: QuixEventBus, actions: any[], user = this.defaultUser) {

@@ -2,11 +2,32 @@ import template from './header.html';
 import './header.scss';
 import {initNgScope} from '../../lib/core';
 import {Store} from '../../lib/store';
-import {Instance} from '../../lib/app';
+import {App} from '../../lib/app';
 import {IScope} from './header-types';
-import * as AppActions from "../../store/app/app-actions";
+import {HeaderMenu} from '../../config';
+import * as AppActions from '../../store/app/app-actions';
 
-export default (app: Instance, store: Store) => () => ({
+const listenToNavChange = (scope: IScope, app: App, store: Store) => {
+  const {navItems} = scope.vm;
+
+  const states = navItems.reduce((res, item) => {
+    return [...res, ...(item.activeStates || [item.targetState])];
+  }, []);
+
+  app.getNavigator()
+    .listen(states, 'success', async (params, state) => {
+      const menuItem = navItems.find(item => {
+        return (item.targetState === state || (item.activeStates && item.activeStates.indexOf(state) !== -1));
+      });
+
+      const procede = await (menuItem && (!menuItem.activeCondition || menuItem.activeCondition(app, store, state, params.id)));
+
+      scope.vm.currentState = procede ? menuItem.targetState : null;
+    }, scope)
+    .otherwise(() => scope.vm.currentState = null);
+}
+
+export default (app: App, store: Store) => () => ({
   restrict: 'E',
   template,
   scope: {},
@@ -14,18 +35,22 @@ export default (app: Instance, store: Store) => () => ({
     async pre(scope: IScope) {
       initNgScope(scope)
         .withVM({
-          searchText: null
+          searchText: null,
+          currentState: null,
+          navItems: HeaderMenu(scope)
         })
         .withEvents({
           onSearch() {
-            store.dispatch(AppActions.search(scope.vm.searchText || null, 'user'));
+            store.dispatch(AppActions.setSearchText(scope.vm.searchText || null, 'user'));
           },
-          onFavoritesClick() {
-            app.getNavigator().go('base.favorites');
-          },
+          onNavItemClick(item) {
+            app.go(item.targetState, {id: null});
+          }
         });
 
-      store.subscribe('app.searchText', text => scope.vm.searchText = text, scope);  
+      listenToNavChange(scope, app, store);
+
+      store.subscribe('app.searchText', text => scope.vm.searchText = text, scope);
     }
   }
 });

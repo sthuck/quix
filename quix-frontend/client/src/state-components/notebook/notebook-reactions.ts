@@ -1,14 +1,16 @@
 import {IScope} from './notebook-types';
-import {INotebook, INote} from '../../../../shared';
-import {Instance} from '../../lib/app';
+import {INotebook, INote} from '@wix/quix-shared';
 
-export function setNotebook(scope: IScope, app: Instance, notebook: INotebook) {
+export function setNotebook(scope: IScope, notebook: INotebook) {
   scope.vm.state
     .set('Result', !!notebook, {notebook})
     .then(() => {
-      if (scope.vm.breadcrumbs.folders.length === 1) {
-        scope.vm.breadcrumbs.folders = [...notebook.path, {id: notebook.id, name: notebook.name}];
-        scope.vm.breadcrumbs.reload();
+      if (scope.vm.breadcrumbs.length === 1) {
+        scope.vm.breadcrumbs = [...notebook.path, {id: notebook.id, name: notebook.name}];
+
+        if (!scope.permissions.edit) {
+          scope.vm.breadcrumbs[0].name = `${notebook.ownerDetails.name}'s notebooks`;
+        }
       }
     })
     .else(() => scope.vm.state.value({notebook}));

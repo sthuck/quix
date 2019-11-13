@@ -1,8 +1,5 @@
-import {ComponentTestkit} from '../common/component-testkit'
-import {ElementHandle} from 'puppeteer';
+import {Testkit} from '../../../test/e2e/driver';
 
-export class TempQueryTestkit extends ComponentTestkit {
-  constructor(element: ElementHandle) {
-    super(element);
-  }
+export class TempQueryTestkit extends Testkit {
+
 }

@@ -1,12 +1,32 @@
 import {Injectable, HttpException, HttpStatus} from '@nestjs/common';
-import {Request} from 'express';
 import {ConfigService} from 'config';
 import {JwtService} from '@nestjs/jwt';
-import {UserProfile} from './types';
+import {IGoogleUser} from './types';
 import {OAuth2Client} from 'google-auth-library';
 
+export abstract class AuthService {
+  abstract createUserJwtToken(userProfile: IGoogleUser): Promise<string>;
+  abstract getUserProfileFromCode(
+    authCode: string,
+  ): Promise<IGoogleUser | undefined>;
+}
+
 @Injectable()
-export class AuthService {
+export class FakeAuthService implements AuthService {
+  getUserProfileFromCode(authCode: string) {
+    const up: IGoogleUser = JSON.parse(authCode);
+    return Promise.resolve(up);
+  }
+
+  createUserJwtToken(userProfile: IGoogleUser) {
+    return Promise.resolve(
+      Buffer.from(JSON.stringify(userProfile)).toString('base64'),
+    );
+  }
+}
+
+@Injectable()
+export class GoogleAuthService implements AuthService {
   private googleClientId: string;
   private googleAuthSecret: string;
   constructor(
@@ -18,7 +38,7 @@ export class AuthService {
     this.googleAuthSecret = settings.GoogleAuthSecret;
   }
 
-  createUserJwtToken(userProfile: UserProfile) {
+  createUserJwtToken(userProfile: IGoogleUser) {
     return this.jwtService.signAsync(userProfile);
   }
 
@@ -42,7 +62,7 @@ export class AuthService {
     const payload = (verify && verify.getPayload()) || null;
 
     if (payload && payload.email && payload.sub) {
-      const up: UserProfile = {
+      const up: IGoogleUser = {
         avatar: payload.picture,
         name: payload.name,
         email: payload.email,

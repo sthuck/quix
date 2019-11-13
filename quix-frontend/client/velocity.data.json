@@ -1,14 +1,11 @@
 {
-  "title": "BI Profile",
-  "debug": true,
-  "experiments": {
-
-  },
-  "locale": "en",
-  "basename": "/",
   "clientTopology": {
     "staticsBaseUrl": "//localhost:3200/",
-    "quixBackendUrl": "//localhost:8080/",
-    "googleClientId": ""
+    "executeBaseUrl": "//localhost:3000/mock",
+    "apiBasePath": ""
+  },
+  "mode": {
+    "debug": true,
+    "demo": false
   }
 }

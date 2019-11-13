@@ -1,7 +1,8 @@
+import {inject} from '../../lib/core';
 import {Store} from '../../lib/store';
+import {INote} from '@wix/quix-shared';
 import {IScope} from './note-types';
-import {confirmAction} from '../../services';
-import {Instance} from '../../lib/app';
+import {App} from '../../lib/app';
 
 export const onFoldToggle = (scope: IScope, store: Store) => () => {
   scope.options.focusEditor = true;
@@ -19,12 +20,16 @@ export const onContentChange = (scope: IScope, store: Store) => () => {
   scope.onContentChange({note: scope.note});
 };
 
-export const onShare = (scope: IScope, store: Store) => () => {
-  scope.onShare({note: scope.note});
+export const onShare = (scope: IScope, store: Store) => (note: INote) => {
+  scope.onShare({note});
 };
 
-export const onDelete = (scope: IScope, store: Store) => () => {
-  confirmAction('delete', 'note').then(() =>  scope.onDelete({note: scope.note}));
+export const onClone = (scope: IScope, store: Store) => (note: INote) => {
+  scope.onClone({note});
+};
+
+export const onDelete = (scope: IScope, store: Store) => (note: INote) => {
+  scope.onDelete({note});
 };
 
 export const onSave = (scope: IScope, store: Store) => () => {
@@ -35,15 +40,17 @@ export const onRun = (scope: IScope, store: Store) => () => {
   scope.onRun();
 };
 
-export const onMaximizeToggle = (scope: IScope, store: Store, app: Instance) => () => {
-  scope.vm.editor.focus();
+export const onMaximizeToggle = (scope: IScope, store: Store, app: App) => () => {
+  scope.vm.isFolded = false;
+
+  inject('$timeout')(() => scope.vm.editor.focus());
 };
 
-export const onEditorInstanceLoad = (scope: IScope, store: Store, app: Instance) => (editor) => {
+export const onEditorInstanceLoad = (scope: IScope, store: Store, app: App) => (editor) => {
   scope.vm.editor = editor;
 };
 
-export const onRunnerInstanceLoad = (scope: IScope, store: Store, app: Instance) => (runner) => {
+export const onRunnerInstanceLoad = (scope: IScope, store: Store, app: App) => (runner) => {
   scope.vm.runner = runner;
 };
 

@@ -2,17 +2,18 @@ import template from './base.html';
 
 import {initNgScope} from '../../lib/core';
 import {Store} from '../../lib/store';
-import {Instance as App} from '../../lib/app';
-import {IStateComponentConfig} from '../../lib/app/services/plugin-instance';
-import {search} from '../../store/app/app-actions';
+import {App} from '../../lib/app';
+import {IStateComponentConfig} from '../../lib/app/services/plugin-builder';
+import {setSearchText, setSearchPage} from '../../store/app/app-actions';
 import {openSearchResults, openTempQuery, closePopup, hasQueuedNotes} from '../../services';
 
 export default (app: App, store: Store) => ({
-  name: 'base',
+  name: '',
   abstract: true,
   template,
   url: {
-    searchText: text => search(text)
+    searchText: setSearchText,
+    searchPage: page => setSearchPage(page && parseInt(page, 10))
   },
   scope: {},
   controller: (scope, params, {syncUrl}) => {

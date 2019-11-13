@@ -1,25 +1,12 @@
 import {IEntity} from '../common/common-types';
 
-export enum NoteType {
-  PRESTO = 'presto',
-  NATIVE = 'native'
-}
+type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
 
-export interface BaseNote extends IEntity {
+export interface IBaseNote extends Omit<IEntity, 'ownerDetails'> {
   notebookId: string;
-  type: NoteType;
-  content: any;
-  rank?: number; //TODO: TEMP, SHOULD BE REMOVED @aviad
-}
-
-export interface PrestoNote extends BaseNote {
-  type: NoteType.PRESTO;
+  type: string;
   content: string;
+  owner: string;
 }
 
-export interface NativeNote extends BaseNote {
-  type: NoteType.NATIVE;
-  content: {queries: string[]};
-}
-
-export type INote = NativeNote | PrestoNote;
+export type INote = IBaseNote;

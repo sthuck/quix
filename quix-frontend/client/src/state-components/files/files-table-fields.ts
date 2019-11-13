@@ -1,31 +1,37 @@
-import {IFile} from '../../../../shared';
+import {IFile} from '@wix/quix-shared';
 
 export const initTableFields = scope => {
-  return [{
-    name: 'mark',
-    title: ' ',
-    sort: false,
-    filter(_, file, index, compile) {
-      return compile(`
-        <span class="quix-checkbox" ng-click="$event.stopPropagation()">
-          <i
-            class="bi-action bi-icon bi-fade-in checked"
-            ng-if="vm.marked.map[file.id]"
-            ng-click="$event.stopPropagation(); events.onMarkToggle(file)"
-          >
-            check_box_outline
-          </i>
-          <i
-            class="bi-action bi-icon bi-fade-in"
-            ng-if="!vm.marked.map[file.id]"
-            ng-click="$event.stopPropagation(); events.onMarkToggle(file)"
-          >
-            check_box_outline_blank
-          </i>
-        </span>  
-      `, {file}, scope);
-    }
-  },{
+  const fields = [];
+
+  if (scope.permissions.edit) {
+    fields.push({
+      name: 'mark',
+      title: ' ',
+      sort: false,
+      filter(_, file, index, compile) {
+        return compile(`
+          <span class="quix-checkbox" ng-click="$event.stopPropagation()" data-hook="files-mark-column">
+            <i
+              class="bi-action bi-icon bi-fade-in checked"
+              ng-if="vm.marked.map[file.id]"
+              ng-click="$event.stopPropagation(); events.onMarkToggle(file)"
+            >
+              check_box_outline
+            </i>
+            <i
+              class="bi-action bi-icon bi-fade-in"
+              ng-if="!vm.marked.map[file.id]"
+              ng-click="$event.stopPropagation(); events.onMarkToggle(file)"
+            >
+              check_box_outline_blank
+            </i>
+          </span>  
+        `, {file}, scope);
+      }
+    });
+  }
+
+  return [...fields, ...[{
     name: 'name',
     sort(_, file) {
       return `${file.type === 'folder' ? 0 : 1}${file.name}`;
@@ -33,10 +39,7 @@ export const initTableFields = scope => {
     filter(_, file: IFile, index, compile) {
       return compile(`
         <div class="bi-align bi-s-h">
-          <i 
-            class="bi-icon" 
-            ng-class="::file.type === 'folder' ? 'bi-warning' : 'bi-muted'"
-          >{{::file.type === 'folder' ? 'folder' : 'insert_drive_file'}}</i>
+          <i class="bi-icon bi-muted">{{::file.type === 'folder' ? 'folder' : 'insert_drive_file'}}</i>
 
           <span ng-if="!vm.get(file).isNew">{{::file.name}}</span>
           
@@ -82,5 +85,5 @@ export const initTableFields = scope => {
   //     `, {file}, scope);
   //   }
   // }
-];
+]];
 };

@@ -12,9 +12,9 @@ sealed case class End(id: String) extends EventData
 
 sealed case class SubQueryStart(id: String) extends EventData
 
-sealed case class SubQueryFields(id: String, fields: List[String]) extends EventData
+sealed case class SubQueryFields(id: String, fields: Seq[String]) extends EventData
 
-sealed case class SubQueryDetails(id: String, code: String) extends EventData
+sealed case class SubQueryDetails[Code](id: String, code: Code) extends EventData
 
 sealed case class SubQueryEnd(id: String) extends EventData
 
@@ -22,7 +22,7 @@ sealed case class SubQueryError(id: String, message: String) extends EventData
 
 sealed case class Progress(id: String, percentage: Int) extends EventData
 
-sealed case class Row(id: String, values: List[AnyRef]) extends EventData
+sealed case class Row(id: String, values: Seq[Any]) extends EventData
 
 sealed case class Download(id: String, url: String) extends EventData
 
@@ -44,7 +44,7 @@ object SubQueryStart {
 }
 
 object SubQueryDetails {
-  def apply(id: String, code: String): ExecutionEvent = ExecutionEvent("query-details", new SubQueryDetails(id, code))
+  def apply[Code](id: String, code: Code): ExecutionEvent = ExecutionEvent("query-details", new SubQueryDetails(id, code))
 }
 
 object SubQueryEnd {
@@ -52,11 +52,11 @@ object SubQueryEnd {
 }
 
 object SubQueryError {
-  def apply(id: String, message: String): ExecutionEvent = ExecutionEvent("query-error", new SubQueryError(id, message))
+  def apply(id: String, message: String): ExecutionEvent = ExecutionEvent("error", new SubQueryError(id, message))
 }
 
 object SubQueryFields {
-  def apply(id: String, fields: List[String]): ExecutionEvent = ExecutionEvent("fields", new SubQueryFields(id, fields))
+  def apply(id: String, fields: Seq[String]): ExecutionEvent = ExecutionEvent("fields", new SubQueryFields(id, fields))
 }
 
 object Progress {
@@ -68,7 +68,7 @@ object Error {
 }
 
 object Row {
-  def apply(id: String, values: List[AnyRef]): ExecutionEvent = ExecutionEvent("row", new Row(id, values))
+  def apply(id: String, values: Seq[Any]): ExecutionEvent = ExecutionEvent("row", new Row(id, values))
 }
 
 object Pong {

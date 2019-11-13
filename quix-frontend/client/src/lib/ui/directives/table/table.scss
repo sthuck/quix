@@ -1,14 +1,15 @@
 @import '../../assets/css/def/defaults.def';
 @import '../../assets/css/def/colors.def';
 
+.bi-table-container,
 bi-tbl {
   display: block;
 
   table > tbody {
-    transition: opacity .3s;
+    transition: opacity 0.3s;
 
     &.bi-tbl-fade-out {
-      opacity: .2;
+      opacity: 0.2;
     }
   }
 
@@ -40,7 +41,7 @@ bi-tbl {
       }
 
       tr:first-child td {
-        border-top: 0;
+        border-top: 1px solid transparent;
       }
     }
   }
@@ -55,7 +56,7 @@ bi-tbl {
       tr {
         cursor: pointer;
 
-        &.selected {
+        &.bi-active {
           background-color: $grey--100 !important;
         }
 
@@ -85,6 +86,7 @@ bi-tbl {
       display: flex;
       flex-direction: column;
       flex-grow: 1;
+      border-top: 2px solid $grey--300;
       background-color: $white;
     }
 
@@ -106,6 +108,8 @@ bi-tbl {
           padding-left: 8px;
           border-left: 1px solid $grey--300 !important;
         }
+
+        border-bottom: none;
       }
 
       .bi-table-th-content {
@@ -126,12 +130,17 @@ bi-tbl {
           background-color: $grey--100;
         }
 
+        &:nth-child(odd) {
+          background-color: $white;
+        }
+
         &:last-child {
           border-bottom: 1px solid $grey--300;
         }
 
         > td {
           padding: 5px 8px !important;
+          border-top: 1px solid $grey--300;
           font-size: 12px;
 
           &:not(:first-child) {

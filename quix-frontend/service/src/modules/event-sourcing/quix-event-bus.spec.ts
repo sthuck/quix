@@ -10,6 +10,9 @@ import {FileActions, FileType} from 'shared/entities/file';
 import {QuixEventBus} from './quix-event-bus';
 import {QuixEventBusDriver} from './quix-event-bus.driver';
 import {range, reject, find} from 'lodash';
+import {EntityType} from 'common/entity-type.enum';
+import {MockDataBuilder} from 'test/builder';
+import {IAction} from './infrastructure/types';
 
 jest.setTimeout(30000);
 
@@ -20,12 +23,13 @@ describe('event sourcing', () => {
 
   let eventBus: QuixEventBus;
   let module: TestingModule;
+  let mockBuilder: MockDataBuilder;
   // let notebookRepo: Repository<DbNotebook>;
   // let noteRepo: Repository<DbNote>;
 
   beforeAll(async () => {
     driver = await QuixEventBusDriver.create(defaultUser);
-    ({eventBus, module} = await driver);
+    ({eventBus, module, mockBuilder} = driver);
   });
 
   beforeEach(() => driver.clearDb());
@@ -35,10 +39,10 @@ describe('event sourcing', () => {
 
   describe('notebooks::', () => {
     let id: string;
-    let createAction: NotebookActions;
+    let createAction: IAction<NotebookActions>;
 
     beforeEach(() => {
-      [id, createAction] = driver.createNotebookAction();
+      [id, createAction] = mockBuilder.createNotebookAction();
     });
 
     it('create notebook', async () => {
@@ -56,8 +60,12 @@ describe('event sourcing', () => {
     });
 
     it('update name', async () => {
+      const note = createNote(id);
+      const addNoteAction = NoteActions.addNote(note.id, note);
+
       await driver.emitAsUser(eventBus, [
         createAction,
+        addNoteAction,
         NotebookActions.updateName(id, 'newName'),
       ]);
 
@@ -66,15 +74,24 @@ describe('event sourcing', () => {
       expect(notebook.name).toBe('newName');
     });
 
-    // it('update isLiked', async () => {
-    //   await driver.emitAsUser(eventBus, [
-    //     createAction,
-    //     NotebookActions.toggleIsLiked(id, true),
-    //   ]);
-    //   const notebook = await driver.getNotebook(id).and.expectToBeDefined();
+    it('toggle isLiked', async () => {
+      await driver.emitAsUser(eventBus, [
+        createAction,
+        NotebookActions.toggleIsLiked(id, true),
+      ]);
 
-    //   expect(notebook.isLiked).toBe(true);
-    // });
+      await driver
+        .getFavorite(defaultUser, id, EntityType.Notebook)
+        .and.expectToBeDefined();
+
+      await driver.emitAsUser(eventBus, [
+        NotebookActions.toggleIsLiked(id, false),
+      ]);
+
+      await driver
+        .getFavorite(defaultUser, id, EntityType.Notebook)
+        .and.expectToBeUndefined();
+    });
 
     it('delete', async () => {
       await eventBus.emit(createAction);
@@ -86,6 +103,46 @@ describe('event sourcing', () => {
 
       await driver.getNotebook(id).and.expectToBeUndefined();
     });
+
+    it('delete favorite after deleting the notebook', async () => {
+      await eventBus.emit([createAction]);
+
+      await driver.emitAsUser(eventBus, [
+        NotebookActions.toggleIsLiked(id, true),
+      ]);
+
+      await driver
+        .getFavorite(defaultUser, id, EntityType.Notebook)
+        .and.expectToBeDefined();
+
+      await driver.emitAsUser(eventBus, [NotebookActions.deleteNotebook(id)]);
+
+      await driver
+        .getFavorite(defaultUser, id, EntityType.Notebook)
+        .and.expectToBeUndefined();
+    });
+
+    it('delete only the favorite of the deleted notebook', async () => {
+      const [id1, createAction1] = mockBuilder.createNotebookAction();
+      const [id2, createAction2] = mockBuilder.createNotebookAction();
+
+      await eventBus.emit([createAction1, createAction2]);
+
+      await driver.emitAsUser(eventBus, [
+        NotebookActions.toggleIsLiked(id1, true),
+        NotebookActions.toggleIsLiked(id2, true),
+      ]);
+
+      await driver.emitAsUser(eventBus, [NotebookActions.deleteNotebook(id1)]);
+
+      await driver
+        .getFavorite(defaultUser, id1, EntityType.Notebook)
+        .and.expectToBeUndefined();
+
+      await driver
+        .getFavorite(defaultUser, id2, EntityType.Notebook)
+        .and.expectToBeDefined();
+    });
   });
 
   describe('notes::', () => {
@@ -95,7 +152,7 @@ describe('event sourcing', () => {
     let note: INote;
 
     beforeEach(() => {
-      [notebookId, createNotebookAction] = driver.createNotebookAction();
+      [notebookId, createNotebookAction] = mockBuilder.createNotebookAction();
       note = createNote(notebookId);
       addNoteAction = NoteActions.addNote(note.id, note);
     });
@@ -109,6 +166,20 @@ describe('event sourcing', () => {
       expect(notebook.notes).toHaveLength(1);
     });
 
+    it('create note, with content', async () => {
+      await driver.emitAsUser(eventBus, [createNotebookAction]);
+      addNoteAction = NoteActions.addNote(
+        note.id,
+        createNote(notebookId, {content: 'bla bla bla'}),
+      );
+      await driver.emitAsUser(eventBus, [addNoteAction]);
+
+      const notebook = await driver.getNotebookWithNotes(notebookId);
+
+      expect(notebook.notes).toHaveLength(1);
+      expect(notebook.notes![0].textContent).toBe('bla bla bla');
+    });
+
     it('create note with bulk actions', async () => {
       await driver.emitAsUser(eventBus, [createNotebookAction, addNoteAction]);
 
@@ -116,7 +187,7 @@ describe('event sourcing', () => {
 
       expect(notebook.notes).toHaveLength(1);
       const {id, name, notebookId: parent, type} = note;
-      expect(notebook.notes[0]).toMatchObject(
+      expect(notebook.notes![0]).toMatchObject(
         expect.objectContaining({
           id,
           name,
@@ -135,7 +206,7 @@ describe('event sourcing', () => {
       ]);
       const notebook = await driver.getNotebookWithNotes(notebookId);
 
-      expect(notebook.notes[0].name).toBe('changedName');
+      expect(notebook.notes![0].name).toBe('changedName');
     });
 
     it('delete note', async () => {
@@ -155,7 +226,7 @@ describe('event sourcing', () => {
       ]);
       const notebook = await driver.getNotebookWithNotes(notebookId);
 
-      expect(notebook.notes[0].content).toBe('select foo from bar');
+      expect(notebook.notes![0].textContent).toBe('select foo from bar');
     });
 
     it('move note between notebook', async () => {
@@ -163,7 +234,7 @@ describe('event sourcing', () => {
       const [
         secondNotebookId,
         createNotebookAction2,
-      ] = driver.createNotebookAction();
+      ] = mockBuilder.createNotebookAction();
 
       await driver.emitAsUser(eventBus, [createNotebookAction2]);
 
@@ -186,8 +257,22 @@ describe('event sourcing', () => {
       const howManyNotes = 6;
 
       beforeEach(async () => {
+        const [
+          notebookId2,
+          createNotebookAction2,
+        ] = mockBuilder.createNotebookAction();
+
+        const notes2 = range(2).map(() => createNote(notebookId2));
+
         notes = range(howManyNotes).map(() => createNote(notebookId));
         createNoteActions = notes.map(n => NoteActions.addNote(n.id, n));
+        const createNoteActions2 = notes2.map(n =>
+          NoteActions.addNote(n.id, n),
+        );
+
+        /* creating notes in another notebook, just to make sure reorder is local inside a notebook */
+        await driver.emitAsUser(eventBus, [createNotebookAction2]);
+        await driver.emitAsUser(eventBus, createNoteActions2);
 
         await driver.emitAsUser(eventBus, [createNotebookAction]);
         await driver.emitAsUser(eventBus, createNoteActions);
@@ -197,7 +282,7 @@ describe('event sourcing', () => {
         const notebook = await driver.getNotebookWithNotes(notebookId);
         const doesRankMatchInsertOrder = notes.every(
           (note, index) =>
-            notebook.notes.find(n => n.id === note.id)!.rank === index,
+            notebook.notes!.find(n => n.id === note.id)!.rank === index,
         );
 
         expect(doesRankMatchInsertOrder).toBeTruthy();
@@ -220,7 +305,7 @@ describe('event sourcing', () => {
           const notebook = await driver.getNotebookWithNotes(notebookId);
           const doesRankMatchInsertOrder = filteredNotes.every(
             (note, index) =>
-              notebook.notes.find(n => n.id === note.id)!.rank === index,
+              notebook.notes!.find(n => n.id === note.id)!.rank === index,
           );
 
           expect(doesRankMatchInsertOrder).toBeTruthy();
@@ -243,7 +328,7 @@ describe('event sourcing', () => {
 
           const doesRankMatchInsertOrder = reorderdNotes.every(
             (note, index) =>
-              notebook.notes.find(n => n.id === note.id)!.rank === index,
+              notebook.notes!.find(n => n.id === note.id)!.rank === index,
           );
 
           expect(doesRankMatchInsertOrder).toBeTruthy();
@@ -259,11 +344,11 @@ describe('event sourcing', () => {
     let createNotebookAction: any;
 
     beforeEach(() => {
-      [folderId, createFolderAction] = driver.createFolderAction(
+      [folderId, createFolderAction] = mockBuilder.createFolderAction(
         'rootFolder',
         [],
       );
-      [notebookId, createNotebookAction] = driver.createNotebookAction([
+      [notebookId, createNotebookAction] = mockBuilder.createNotebookAction([
         {id: folderId},
       ]);
     });
@@ -299,9 +384,10 @@ describe('event sourcing', () => {
     });
 
     it('have multiple notebooks inside a single folder', async () => {
-      const [notebookId2, createNotebookAction2] = driver.createNotebookAction([
-        {id: folderId},
-      ]);
+      const [
+        notebookId2,
+        createNotebookAction2,
+      ] = mockBuilder.createNotebookAction([{id: folderId}]);
       await driver.emitAsUser(eventBus, [
         createFolderAction,
         createNotebookAction,
@@ -316,7 +402,7 @@ describe('event sourcing', () => {
     });
 
     it('notebook move', async () => {
-      const [subFolder1, createSubFolder1] = driver.createFolderAction(
+      const [subFolder1, createSubFolder1] = mockBuilder.createFolderAction(
         'subFolder1',
         [{id: folderId}],
       );
@@ -337,24 +423,25 @@ describe('event sourcing', () => {
     });
 
     it('folder tree move', async () => {
-      const [subFolder1, createSubFolder1] = driver.createFolderAction(
+      const [subFolder1, createSubFolder1] = mockBuilder.createFolderAction(
         'subFolder1',
         [{id: folderId}],
       );
 
-      const [subFolder2, createSubFolder2] = driver.createFolderAction(
+      const [subFolder2, createSubFolder2] = mockBuilder.createFolderAction(
         'subFolder2',
         [{id: subFolder1}],
       );
 
-      const [subFolder3, createSubFolder3] = driver.createFolderAction(
+      const [subFolder3, createSubFolder3] = mockBuilder.createFolderAction(
         'subFolder3',
         [{id: folderId}],
       );
 
-      const [notebookId, createNotebookAction] = driver.createNotebookAction([
-        {id: subFolder2},
-      ]);
+      const [
+        notebookId,
+        createNotebookAction,
+      ] = mockBuilder.createNotebookAction([{id: subFolder2}]);
 
       await driver.emitAsUser(eventBus, [
         createFolderAction,
@@ -401,7 +488,7 @@ describe('event sourcing', () => {
     });
 
     it('delete an empty folder', async () => {
-      const [subFolder1, createSubFolder1] = driver.createFolderAction(
+      const [subFolder1, createSubFolder1] = mockBuilder.createFolderAction(
         'subFolder1',
         [{id: folderId}],
       );
@@ -419,24 +506,25 @@ describe('event sourcing', () => {
     });
 
     it('recursively delete a folder', async () => {
-      const [subFolder1, createSubFolder1] = driver.createFolderAction(
+      const [subFolder1, createSubFolder1] = mockBuilder.createFolderAction(
         'subFolder1',
         [{id: folderId}],
       );
 
-      const [subFolder2, createSubFolder2] = driver.createFolderAction(
+      const [subFolder2, createSubFolder2] = mockBuilder.createFolderAction(
         'subFolder2',
         [{id: subFolder1}],
       );
 
-      const [subFolder3, createSubFolder3] = driver.createFolderAction(
+      const [subFolder3, createSubFolder3] = mockBuilder.createFolderAction(
         'subFolder3',
         [{id: subFolder2}],
       );
 
-      const [notebookId, createNotebookAction] = driver.createNotebookAction([
-        {id: subFolder2},
-      ]);
+      const [
+        notebookId,
+        createNotebookAction,
+      ] = mockBuilder.createNotebookAction([{id: subFolder2}]);
 
       await driver.emitAsUser(eventBus, [
         createFolderAction,
@@ -455,6 +543,34 @@ describe('event sourcing', () => {
       /* Checking that deletion deletes entities from other tables */
       await driver.getNotebook(notebookId).and.expectToBeUndefined();
       expect(await driver.folderRepo.find()).toHaveLength(1);
+    });
+
+    it('delete notebook favorite after deleting the parent folder', async () => {
+      const [subFolderId, createSubFolder] = mockBuilder.createFolderAction(
+        'subFolder',
+        [{id: folderId}],
+      );
+
+      const [
+        notebookId,
+        createNotebookAction,
+      ] = mockBuilder.createNotebookAction([{id: subFolderId}]);
+
+      await driver.emitAsUser(eventBus, [
+        createFolderAction,
+        createSubFolder,
+        createNotebookAction,
+      ]);
+
+      await driver.emitAsUser(eventBus, [
+        NotebookActions.toggleIsLiked(notebookId, true),
+      ]);
+
+      await driver.emitAsUser(eventBus, [FileActions.deleteFile(subFolderId)]);
+
+      await driver
+        .getFavorite(defaultUser, notebookId, EntityType.Notebook)
+        .and.expectToBeUndefined();
     });
   });
 });

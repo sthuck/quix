@@ -4,7 +4,11 @@
   "port": 3306,
   "username": "root",
   "password": "",
-  "database": "Quix",
+  "database": "quix",
   "entities": ["src/**/*.entity{.ts,.js}"],
-  "synchronize": false
+  "migrations": ["./migrations/*.ts"],
+  "synchronize": false,
+  "cli": {
+    "migrationsDir": "./migrations"
+  }
 }

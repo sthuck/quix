@@ -9,23 +9,21 @@ interface Permissions {
   delete: boolean;
 }
 
-/**
- * Will be required by <file-explorer-inner>
- */
 export default class Controller {
   private readonly ngModel: ng.INgModelController;
+  private readonly $compile: ng.ICompileService;
   private readonly instance: Instance;
   private currentFolder: Folder = null;
   private currentFile: File = null;
-  private readonly $transclude: ng.ITranscludeFunction;
-  private readonly slots: Record<string, boolean> = {};
 
-  constructor(private readonly $scope, private readonly $element, $transclude) {
+  constructor(private readonly $scope, private readonly $element, private readonly $transclude :ng.ITranscludeFunction) {
     this.instance = new Instance($scope);
     this.ngModel = $element.controller('ngModel');
-    this.$transclude = $transclude;
+    this.$compile = inject('$compile');
+  }
 
-    this.slots.menu = this.$transclude.isSlotFilled('menu');
+  private render(html) {
+    return scope => ({html: this.$compile(html)(scope)});
   }
 
   getInstance(): Instance {
@@ -38,10 +36,6 @@ export default class Controller {
       delete: !this.$scope.readonly,
       menu: !this.$scope.readonly
     });
-  }
-
-  getSlots() {
-    return this.slots;
   }
 
   getContainer() {
@@ -74,6 +68,7 @@ export default class Controller {
 
   syncItem(item: Item, eventName: string, ...args): Controller {
     this.ngModel.$setViewValue(this.$scope.model.$clone());
+
     this.fireEvent(item, eventName, ...args);
 
     return this;
@@ -100,13 +95,43 @@ export default class Controller {
     });
   }
 
+  renderFolder(scope) {
+    return this.render(`
+      <span class="bi-align bi-r-h">
+        <span class="fe-icon-container" bi-html="renderFolderIcon(folder)"></span>
+
+        <span class="bi-text--ellipsis" bi-draggable="events.onDrag(folder)">
+          <span
+            ng-if="vm.folders.get(folder).edit.enabled"
+            ng-model="folder.name"
+            contenteditable="{{vm.folders.get(folder).edit.enabled}}"
+            on-change="events.onFolderRenamed(folder)"
+            on-blur="events.onFolderBlur(folder)"
+            ce-options="::{autoEdit: true}"
+          >{{folder.getName()}}</span>
+
+          <span ng-if="!vm.folders.get(folder).edit.enabled">{{folder.getName()}}</span>
+        </span>
+      </span>
+    `)(scope);
+  }
+
+  renderFile(scope) {
+    return this.render(`
+      <span class="fe-item-name bi-r-h bi-align">
+        <span class="fe-icon-container" bi-html="renderFileIcon(file)"></span>
+        <span class="bi-text--ellipsis" bi-draggable="events.onDrag(file)">{{file.getName()}}</span>
+      </span>
+    `)(scope);
+  }
+
   renderFolderIcon(scope, folder: Folder) {
     let html;
 
     if (!this.$transclude.isSlotFilled('folderIcon')) {
       html = inject('$compile')(`
-        <i class="fe-icon bi-icon bi-warning">folder</i>
-      `)(assign(scope.$new(), {folder}));
+        <i class="fe-icon bi-icon">folder</i>
+      `)(assign(scope.$new(true), {folder}));
     } else {
       html = this.$transclude((_, s) => s.folder = itemToDef(folder), null, 'folderIcon');
     }
@@ -120,7 +145,7 @@ export default class Controller {
     if (!this.$transclude.isSlotFilled('fileIcon')) {
       html = inject('$compile')(`
         <i class="fe-icon bi-icon">insert_drive_file</i>
-      `)(assign(scope.$new(), {file}));
+      `)(assign(scope.$new(true), {file}));
     } else {
       html = this.$transclude((_, s) => s.file = itemToDef(file), null, 'fileIcon');
     }
@@ -140,18 +165,16 @@ export default class Controller {
             ng-disabled="::!events.onFileCreate"
             ng-click="events.onFileCreate && events.onFileCreate(type, folder)"
           >
-            <i class="bi-icon bi-success">note_add</i>
+            <i class="bi-icon">note_add</i>
             <span>New {{::type}}</span>
           </li>
-
-          <li class="bi-dropdown-separator"></li>
 
           <li 
             class="bi-align bi-space-h"
             ng-disabled="::!events.onFolderCreate"
             ng-click="events.onFolderCreate && events.onFolderCreate(folder)"
           >
-            <i class="bi-icon bi-warning">create_new_folder</i>
+            <i class="bi-icon">create_new_folder</i>
             <span>New folder</span>
           </li>
 
@@ -171,11 +194,11 @@ export default class Controller {
             ng-disabled="::!events.onFolderDelete || !vm.folder.canDelete(folder)"
             ng-click="events.onFolderDelete && vm.folder.canDelete(folder) && events.onFolderDelete(folder)"
           >
-            <i class="bi-icon bi-danger">delete</i>
+            <i class="bi-icon">delete</i>
             <span>Delete</span>
           </li>
         </ul>
-      `)(assign(scope.$new(), {folder}));
+      `)(assign(scope));
     } else {
       html = this.$transclude((_, s) => s.folder = itemToDef(folder), null, 'menu');
     }

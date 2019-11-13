@@ -1,34 +1,16 @@
-import {IMeta, IData, IFilterData} from '../../services/chart/chart-conf';
+import {IMeta, IFilterData} from '../../services/chart/chart-conf';
 import {isDimension, isDate} from '../../services/chart/chart-utils';
-import * as echarts from 'echarts/lib/echarts';
-import 'echarts/lib/chart/line'
-import 'echarts/lib/chart/bar'
-import 'echarts/lib/component/tooltip'
-import 'echarts/lib/component/title'
-import 'echarts/lib/component/legend'
 
-function getChartType(filter: IFilterData, meta: IMeta) {
-  if (isDimension(filter.x, meta)) {
-    return 'bar';
-  }
-  return 'line';
-
-}
+declare const Plotly;
 
 function getXAxisType(filter: IFilterData, meta: IMeta) {
   if (isDate(filter.x, meta)) {
-    return 'time';
+    return 'date';
   } if (isDimension(filter.x, meta)) {
-    return 'category';
+    return 'bar';
   }
-  return 'value';
 }
 
-function getMaxInterval(xAxisType, data) {
-  const x = 0
-  const series = data[0];
-  return xAxisType === 'time' && series.data.length > 1 ? series.data[1][x] - series.data[0][x] : {};
-}
 export class ChartRenderer {
   private chart = null;
 
@@ -40,46 +22,46 @@ export class ChartRenderer {
     this.container.html(`<div class="bi-center bi-danger">${e}</div>`);
   }
 
-  public draw(data: IData[], filteredMeta: IMeta, meta: IMeta, filter: IFilterData) {
-    const chartType = getChartType(filter, meta);
+  public draw(data: any[], filteredMeta: IMeta, meta: IMeta, filter: IFilterData) {
     const xAxisType = getXAxisType(filter, meta);
 
-    const maxInterval = getMaxInterval(xAxisType, data);
-    data.map(series => (series as any).type = chartType);
+    data = data.map(serie => ({
+      ...serie,
+      type: xAxisType,
+    }));
 
-    this.chart = echarts.init(this.container.get(0));
-    this.chart.clear();
-    this.chart.setOption({
-      tooltip: {
-        trigger: 'axis'
+    const layout = {
+      barmode: 'group',
+      margin: {
+        l: 30,
+        r: 30,
+        b: 30,
+        t: 30,
+        pad: 4,
       },
       legend: {
-        show: data.length > 1,
-        data: data.map((series: any) => series.name),
-        bottom: true
+        'orientation': 'v',
       },
-      xAxis: {
+      yaxis: {
+        automargin: true,
+      },
+      xaxis: {
+        automargin: true,
+        autorange: true,
         type: xAxisType,
-        maxInterval,
-        name: filter.x,
-        nameLocation: 'center',
-        nameTextStyle: {
-          lineHeight: 40
-        }
-      },
-      yAxis: {
-        name: filter.y.length === 1 ? filter.y[0] : null,
-        nameLocation: 'center',
-        nameTextStyle: {
-          lineHeight: 40
-        }
-      },
-      series: data
+      }
+    };
+
+    if (this.chart) {
+      this.destroy();
+    }
+
+    this.chart = Plotly.newPlot(this.container.get(0), data, layout, {
+      displaylogo: false,
     });
-    this.chart.resize();
   }
 
   public destroy() {
-    this.chart.dispose();
+    Plotly.purge(this.container.get(0));
   }
 }

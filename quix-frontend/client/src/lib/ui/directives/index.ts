@@ -28,3 +28,5 @@ export {default as html} from './html/html';
 export {default as breadcrumbs} from './breadcrumbs/breadcrumbs';
 export {scrollTo} from './scroll';
 export {default as resizable} from './resizable/resizable';
+export {default as infiniteScroll} from './infinite-scroll/infinite-scroll';
+export {default as keyNav} from './key-nav/key-nav';

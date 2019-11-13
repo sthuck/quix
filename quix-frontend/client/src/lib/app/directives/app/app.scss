@@ -10,6 +10,7 @@ bi-app {
     [ng-transclude="header"] {
       header {
         display: block;
+        height: 54px;
       }
     }
 
@@ -23,8 +24,16 @@ bi-app {
   .bi-app-sidebar {
     width: 300px;
 
+    .bi-app-sidebar-toggle {
+      margin-right: -6px;
+    }
+
     .bi-section-content {
-      padding: 12px 0;
+      padding: 0;
+    }
+
+    .ui-resizable-handle {
+      border-right: 1px solid $light-bg;
     }
   }
 }

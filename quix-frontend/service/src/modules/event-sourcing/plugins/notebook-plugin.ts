@@ -1,27 +1,29 @@
 import {Injectable} from '@nestjs/common';
-import {InjectRepository, InjectEntityManager} from '@nestjs/typeorm';
-import {DbNotebook, DbFileTreeNode} from 'entities';
-import {Repository, EntityManager} from 'typeorm';
+import {InjectEntityManager} from '@nestjs/typeorm';
+import {DbFavorites, DbFileTreeNode, DbNotebook} from 'entities';
+import {FileTreeRepository} from 'entities/filenode/filenode.repository';
 import {
-  notebookReducer,
-  NotebookActionTypes,
-  NotebookActions,
-} from 'shared/entities/notebook';
-import {EventBusPlugin, EventBusPluginFn} from '../infrastructure/event-bus';
-import {QuixHookNames} from '../types';
+  convertDbNotebook,
+  covertNotebookToDb,
+} from 'entities/notebook/dbnotebook.entity';
 import {last} from 'lodash';
 import {FileType} from 'shared/entities/file';
-import {FileTreeRepository} from 'entities/filenode.repository';
+import {
+  NotebookActions,
+  NotebookActionTypes,
+  notebookReducer,
+} from 'shared/entities/notebook';
+import {EntityManager} from 'typeorm';
+import {EventBusPlugin, EventBusPluginFn} from '../infrastructure/event-bus';
+import {IAction} from '../infrastructure/types';
+import {QuixHookNames} from '../types';
+import {assertOwner} from './utils';
 
 @Injectable()
 export class NotebookPlugin implements EventBusPlugin {
   name = 'notebook';
 
-  constructor(
-    @InjectRepository(DbNotebook)
-    private notebookRepoistory: Repository<DbNotebook>,
-    @InjectEntityManager() private em: EntityManager,
-  ) {}
+  constructor(@InjectEntityManager() private em: EntityManager) {}
 
   registerFn: EventBusPluginFn = api => {
     const handledEvents: string[] = [
@@ -29,54 +31,87 @@ export class NotebookPlugin implements EventBusPlugin {
       NotebookActionTypes.deleteNotebook,
       NotebookActionTypes.updateName,
     ];
+
     api.setEventFilter(type => handledEvents.includes(type));
 
-    api.hooks.listen(QuixHookNames.VALIDATION, (action: NotebookActions) => {
-      switch (action.type) {
-        case NotebookActionTypes.updateName:
-        case NotebookActionTypes.deleteNotebook:
-        case NotebookActionTypes.createNotebook:
-      }
-    });
+    api.hooks.listen(
+      QuixHookNames.VALIDATION,
+      async (action: IAction<NotebookActions>) => {
+        switch (action.type) {
+          case NotebookActionTypes.updateName:
+          case NotebookActionTypes.deleteNotebook: {
+            const notebook = await this.em.findOneOrFail(DbNotebook, action.id);
+            assertOwner(notebook, action);
+            break;
+          }
+          case NotebookActionTypes.createNotebook:
+        }
+      },
+    );
 
     api.hooks.listen(
       QuixHookNames.PROJECTION,
-      async (action: NotebookActions) =>
-        this.em.transaction('SERIALIZABLE', async transactionManager => {
-          await this.projectionHandleNotebookDb(action, transactionManager);
-          await this.projectionHandleFileTreeDb(action, transactionManager);
+      async (action: IAction<NotebookActions>) =>
+        this.em.transaction(async transactionManager => {
+          await this.projectNotebook(action, transactionManager);
+          await this.projectFileTree(action, transactionManager);
+          await this.projectFavorites(action, transactionManager);
         }),
     );
   };
 
-  async projectionHandleNotebookDb(action: NotebookActions, tm: EntityManager) {
-    const model =
+  private async projectNotebook(
+    action: IAction<NotebookActions>,
+    tm: EntityManager,
+  ) {
+    const dbModel =
       action.type === NotebookActionTypes.createNotebook
         ? undefined
         : await tm.findOne(DbNotebook, action.id);
 
+    const model = dbModel ? convertDbNotebook(dbModel) : undefined;
+
     const newModel = notebookReducer(model, action);
 
     if (newModel && model !== newModel) {
-      return tm.save(new DbNotebook(newModel));
+      return tm.save(covertNotebookToDb(newModel));
     } else if (action.type === NotebookActionTypes.deleteNotebook) {
-      return tm.delete(DbNotebook, {id: action.id});
+      await tm.delete(DbNotebook, {id: action.id});
     }
   }
 
-  async projectionHandleFileTreeDb(action: NotebookActions, tm: EntityManager) {
+  private async projectFileTree(
+    action: IAction<NotebookActions>,
+    tm: EntityManager,
+  ) {
     switch (action.type) {
       case NotebookActionTypes.createNotebook: {
         const {notebook} = action;
         const parent = last(notebook.path);
         const node = new DbFileTreeNode();
+
         node.id = notebook.id;
         node.notebookId = notebook.id;
-        node.owner = (action as any).user;
+        node.owner = action.user;
         node.type = FileType.notebook;
         node.parent = parent ? new DbFileTreeNode(parent.id) : undefined;
+
         return tm.getCustomRepository(FileTreeRepository).save(node);
       }
+    }
+  }
+
+  private async projectFavorites(
+    action: IAction<NotebookActions>,
+    tm: EntityManager,
+  ) {
+    switch (action.type) {
+      case NotebookActionTypes.deleteNotebook: {
+        return tm.delete(DbFavorites, {
+          entityId: action.id,
+        });
+      }
+      default:
     }
   }
 }

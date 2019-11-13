@@ -1,24 +1,11 @@
-<div class="bi-fade-in" ng-if="vm.state.is('Content')" data-hook="files-sidebar-content">
-  <bi-file-explorer
-    ng-model="vm.state.value().tree"
-    fe-options="{fileAlias: ['notebook'], folderMode: 'select'}"
-    on-load="events.onFileExplorerLoad(fileExplorer)"
-    on-file-click="events.onFileClick(file)"
-    on-folder-click="events.onFolderClick(folder)"
-    permissions="getFolderPermissions(folder)"
-  ></bi-file-explorer>
-</div>
-
 <div class="bi-c-h bi-align bi-center bi-grow" ng-if="vm.state.before('Content')">
   <div class="quix-empty-state bi-empty-state--loading bi-fade-in" ng-if="vm.state.is('Initial')">
     <div class="bi-empty-state-content">Loading notebooks...</div>
   </div>
 
   <div class="quix-empty-state bi-empty-state bi-fade-in" ng-if="vm.state.is('Error')" data-hook="files-sidebar-error">
-    <div class="bi-empty-state-icon bi-danger">
-      <i class="bi-icon bi-danger">error_outline</i>
-    </div>
-    <div class="bi-empty-state-header bi-danger">{{::vm.state.value().error.message}}</div>
+    <quix-image class="bi-empty-state-image" name="error_{{::vm.state.value().error.status}}.svg"></quix-image>
+    <div class="bi-empty-state-header">{{::vm.state.value().error.message}}</div>
   </div>
 
   <div
@@ -26,14 +13,28 @@
     ng-if="vm.state.is('Result')"
     data-hook="files-sidebar-empty"
   >
-    <div class="bi-empty-state-icon">
-      <i class="bi-icon">note_add</i>
-    </div>
-    <div class="bi-empty-state-header">
-      You don't have any notebooks
-    </div>
+    <quix-image class="bi-empty-state-image" name="no_data.svg"></quix-image>
+
+    <div class="bi-empty-state-header">You don't have any notebooks</div>
+
     <div class="bi-empty-state-content">
       <a class="bi-link" ng-click="events.onNotebookAdd()">Add notebook</a>
     </div>
   </div>
 </div>
+
+<div class="bi-fade-in" ng-if="vm.state.is('Content')" data-hook="files-sidebar-content">
+  <bi-file-explorer
+    ng-model="vm.state.value().tree"
+    fe-options="{
+      fileAlias: ['notebook'],
+      folderMode: 'select',
+      expandRootFolder: true
+    }"
+    on-load="events.onFileExplorerLoad(fileExplorer)"
+    on-file-click="events.onFileClick(file)"
+    on-folder-click="events.onFolderClick(folder)"
+    permissions="getFolderPermissions(folder)"
+  ></bi-file-explorer>
+</div>
+  

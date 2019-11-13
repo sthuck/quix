@@ -8,8 +8,22 @@ quix-actions {
       margin-right: 0 !important;
 
       &:not(:first-child) {
-        margin-right: 20px !important;
+        margin-right: 15px !important;
       }
+    }
+
+    &.quix-actions-compact {
+      > * {
+        &:not(:first-child) {
+          margin-right: 10px !important;
+        }
+      }
+    }
+  }
+
+  bi-dropdown {
+    .bd-content {
+      margin-top: 5px;
     }
   }
 }

@@ -1,46 +1,48 @@
 @import '../../lib/ui//assets/css/def/colors.def';
 
 quix-note {
+  display: flex;
+  flex-direction: column;
+
+  .quix-checkbox {
+    margin-top: 7px;
+  }
+
   [bf-toggle] {
     width: 100%;
     height: 100%;
   }
 
-  [bi-maximizable] {
-    &.bm--maximized {
-      .bm-toggle {
-        margin: 0;
-      }
+  .bm--maximized {
+    top: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    left: 10px !important;
+
+    .bi-panel-header,
+    .bi-panel-content {
+      padding: 0;
     }
 
-    .bm-toggle {
-      margin: 10px 10px 0;
-      z-index: 100;
+    .bi-panel-header {
+      margin-top: -10px;
     }
   }
-  
+
   .bi-panel-header {
     position: relative;
 
-    bi-dropdown {
-      bi-toggle {
-        height: 37px;
+    .quix-note-drag-indicator {
+      position: absolute;
+      top: 11px;
+      left: -2px;
+      margin: 0 !important;
 
-        i {
-          line-height: 38px !important;
+      .bi-action {
+        &:hover {
+          background-color: transparent !important;
         }
       }
     }
-
-    .quix-note-drag-indicator {
-      position: absolute;
-      top: 10px;
-      left: 0;
-      margin: 0 !important;
-    }
-  }
-
-  .bi-panel-content {
-    // max-height: 400px;
   }
 }

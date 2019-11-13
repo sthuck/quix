@@ -1,16 +1,26 @@
 import {mapValues, last} from 'lodash';
 import {paramCase, camelCase, headerCase} from 'change-case';
 import {srv, inject, utils} from '../../core';
-import {IBranches} from '../../../lib/store/services/store';
 import {createStore, Store} from '../../../lib/store';
 import Navigator from './navigator';
-import Instance, {IMenuItem} from './instance';
-import PluginInstance, {IPluginComponent, IStateFactory, IPluginBranches, IStateComponentFactory, IStateComponentConfig, IUrlParamListener} from './plugin-instance';
+import {App, IMenuItem} from './app';
+import {
+  PluginBuilder,
+  IPluginComponent,
+  IStateFactory,
+  IPluginBranches,
+  IStateComponentFactory,
+  IUrlParamListener,
+  IReactStateComponentConfig, IAngularStateComponentConfig, IStateComponentConfig
+} from './plugin-builder';
 import {initScopeListeners} from '../utils/scope-utils';
 import {User} from './user';
-import { LocalStorage } from '../../core/srv/local-storage';
+import {LocalStorage} from '../../core/srv/local-storage';
+import {Options} from '../types';
+import {react2angular} from 'react2angular';
+import { withAppStoreProvider } from './appStoreProvider';
 
-export type PluginFactory<Config> = (app: PluginInstance<Config>) => any;
+export type PluginFactory<Config> = (app: PluginBuilder<Config>) => any;
 
 const userActionToUrlParam = {};
 const urlMiddleware = str => next => action => {
@@ -34,22 +44,23 @@ const urlMiddleware = str => next => action => {
  *  - register application states
  *  - register menu items
  */
-export default class Builder<Config = any> extends srv.eventEmitter.EventEmitter {
-  private readonly plugins: {[key: string]: PluginInstance<Config>} = {};
-  private appstore: Store = null;
+export class Builder<Config = any> extends srv.eventEmitter.EventEmitter {
+  private readonly plugins: {[key: string]: PluginBuilder<Config>} = {};
   private readonly navigator: Navigator;
   private readonly user: User;
   private readonly menuItems: IMenuItem[] = [];
   private readonly title: string;
   private conf: Config;
 
-  constructor(private readonly id: string | {id: string; title: string}, private readonly ngApp: angular.IModule, private readonly options: {
-    statePrefix?: string;
-    defaultUrl?: string;
-    auth?: {googleClientId: string};
-    homeState?: string;
-    logoUrl?: string;
-  }, private ngmodules = []) {
+  constructor(
+    private readonly id: string | {
+      id: string;
+      title: string;
+    },
+    private readonly ngApp: angular.IModule,
+    private readonly options: Options,
+    private ngmodules = []
+  ) {
     super();
 
     this.user = new User();
@@ -62,11 +73,10 @@ export default class Builder<Config = any> extends srv.eventEmitter.EventEmitter
     }
 
     this.navigator = new Navigator({
+      ...options,
       statePrefix: typeof options.statePrefix === 'undefined' ? 'auth.content.' : options.statePrefix,
       defaultUrl: options.defaultUrl || '/',
-      auth: options.auth,
-      homeState: options.homeState
-    }).init(null, this.user, ngApp);
+    }).init(this.user, ngApp);
   }
 
   /**
@@ -75,8 +85,8 @@ export default class Builder<Config = any> extends srv.eventEmitter.EventEmitter
    * @param id        plugin id
    * @param factory   plugin factory
    */
-  plugin(id: string, factory: (pluginInstance: PluginInstance<Config>) => any): Builder<Config> {
-    this.plugins[id] = new PluginInstance(id, this);
+  plugin(id: string, factory: (pluginBuilder: PluginBuilder<Config>) => any): Builder<Config> {
+    this.plugins[id] = new PluginBuilder(id, this);
 
     factory(this.plugins[id]);
 
@@ -108,22 +118,27 @@ export default class Builder<Config = any> extends srv.eventEmitter.EventEmitter
     return this;
   }
 
+  reactComponent(name:string, factory:angular.IComponentOptions ):  Builder<Config> {
+    this.ngApp.component(name, factory);
+    return this;
+  }
+
   /**
    * Registers a state component
    *
-   * @param name      state component name
    * @param config    state component config
    */
-  stateComponent(config: IStateComponentConfig, app: Instance, store: Store): Builder<Config> {
-    function fromUrl(url: {[key: string]: IUrlParamListener}, params: object) {
+  stateComponent(config: IStateComponentConfig, app: App, store: Store): Builder<Config> {
+    function fromUrl(scope, url: {[key: string]: IUrlParamListener}, params: object) {
       const actions = Object.keys(url).map(param => (url as any)[param].from(params[param]));
 
-      utils.scope.safeApply(inject('$rootScope'), () => store.dispatch(actions));
+      utils.scope.safeDigest(scope, () => store.dispatch(actions));
     }
 
     const [fullStateName, paramName] = config.name.split(':');
-    const stateName = last(fullStateName.split('.'));
-    const componentName = `${app.getId()}-${paramCase(stateName)}`;
+    const stateParts = fullStateName.split('.');
+    const stateName = last(stateParts);
+    const componentName = [app.getId(), paramCase(stateParts.join('_'))].filter(x => !!x).join('-');
 
     this.state({
       name: fullStateName,
@@ -158,9 +173,9 @@ export default class Builder<Config = any> extends srv.eventEmitter.EventEmitter
               return enrichedListener;
             }) as {[key: string]: IUrlParamListener};
 
-            fromUrl(url, inject('$location').search());
+            fromUrl(scope, url, inject('$location').search());
             inject('$timeout')(() => {
-              const cleaner = scope.$on('$locationChangeSuccess', () => fromUrl(url, inject('$location').search()));
+              const cleaner = scope.$on('$locationChangeSuccess', () => fromUrl(scope, url, inject('$location').search()));
               scope.$on('$destroy', () => cleaner());
             });
           },
@@ -180,34 +195,31 @@ export default class Builder<Config = any> extends srv.eventEmitter.EventEmitter
       }]
     });
 
-    this.component(camelCase(componentName), () => ({
+    const isAngularConfig = (unknownConfig: IStateComponentConfig): unknownConfig is IAngularStateComponentConfig => {
+      return typeof (unknownConfig as IAngularStateComponentConfig).template === 'string';
+    };
+
+    const createAngularFactory = (angularConfig: IAngularStateComponentConfig) => () => ({
       restrict: 'E',
-      template: config.template,
-      scope: mapValues({...config.scope, $stateOptions: true}, () => '<'),
+      template: angularConfig.template,
+      scope: mapValues({...angularConfig.scope, $stateOptions: true}, () => '<'),
       link: {
         pre(scope, ...args) {
-          initScopeListeners(scope, store, config.scope);
-          (config.link as any)(scope, ...args);
+          initScopeListeners(scope, store, angularConfig.scope);
+          (angularConfig.link as any)(scope, ...args);
         }
       }
-    }));
+    });
+
+    const createReactFactory = (reactConfig: IReactStateComponentConfig) =>
+      react2angular(withAppStoreProvider(app, store, reactConfig.template),
+        Object.keys(reactConfig.scope));
+
+    isAngularConfig(config) ?
+      this.component(camelCase(componentName), createAngularFactory(config)):
+      this.reactComponent(camelCase(componentName), createReactFactory(config));
 
     return this;
-  }
-
-  /**
-   * Creates a redux store
-   *
-   * @param branches    store branches
-   * @param logUrl      events log url
-   */
-  store(branches?: IBranches, logUrl?: string) {
-    if (branches) {
-      this.appstore = createStore(branches, {logUrl});
-      return this;
-    }
-      return this.appstore;
-
   }
 
   modules(modules: string[]) {
@@ -231,16 +243,15 @@ export default class Builder<Config = any> extends srv.eventEmitter.EventEmitter
   /**
    * Creates an application instance
    */
-  build(): Instance<Config> {
-    const app = new Instance<Config>(
+  build(): App<Config> {
+    const app = new App<Config>(
       this.id as string,
-      this.title, 
-      this.options.logoUrl,
+      this.title,
+      this.options,
       this.plugins,
       this.user,
       this.navigator,
       this.menuItems,
-      this.appstore,
       this.conf,
     )
       .init(this.ngmodules);

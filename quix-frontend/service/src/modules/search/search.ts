@@ -3,13 +3,22 @@ import {Repository} from 'typeorm';
 import {DbNote} from '../../entities';
 import {isValidQuery, parse} from './parser';
 import {ISearch} from './types';
+import {Injectable} from '@nestjs/common';
+import {InjectRepository} from '@nestjs/typeorm';
+import {convertDbNote} from 'entities/note/dbnote.entity';
+import {INote} from 'shared';
 
-export class Search implements ISearch {
-  constructor(private repo: Repository<DbNote>) {}
+@Injectable()
+export class SearchService implements ISearch {
+  constructor(@InjectRepository(DbNote) private repo: Repository<DbNote>) {}
 
-  async search(content: string): Promise<DbNote[]> {
+  async search(
+    content: string,
+    total = 50,
+    offset = 0,
+  ): Promise<[INote[], number]> {
     if (!content) {
-      return [];
+      return [[], 0];
     }
 
     const searchQuery = parse(content);
@@ -42,12 +51,15 @@ export class Search implements ISearch {
 
       const whereSql = where.join(' AND ');
 
-      q = q.where(whereSql, whereArgs);
+      q = q
+        .take(total)
+        .skip(offset)
+        .where(whereSql, whereArgs);
 
-      const results = await q.getMany();
-      return results;
+      const [notes, count] = await q.getManyAndCount();
+      return [notes.map(convertDbNote), count];
     }
 
-    return [];
+    return [[], 0];
   }
 }

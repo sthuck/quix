@@ -1,13 +1,14 @@
 import template from './actions.html';
 import './actions.scss';
 
+import {isArray} from 'lodash';
 import {initNgScope} from '../../lib/core';
 import {Store} from '../../lib/store';
-import {Instance} from '../../lib/app';
+import {App} from '../../lib/app';
 import {IScope} from './actions-types';
 import {confirmAction} from '../../services';
 
-export default (app: Instance, store: Store) => () => ({
+export default (app: App, store: Store) => () => ({
   restrict: 'E',
   template,
   scope: {
@@ -17,7 +18,7 @@ export default (app: Instance, store: Store) => () => ({
     quixActionsOptions: '<',
     onLikeToggle: '&',
     onShare: '&',
-    onCopy: '&',
+    onClone: '&',
     onDelete: '&'
   },
   link: {
@@ -26,8 +27,10 @@ export default (app: Instance, store: Store) => () => ({
         .withVM({})
         .withOptions('quixActionsOptions', {
           reverse: false,
-          bulk: false,
-          confirmOnDelete: true
+          compact: false,
+          customText: '',
+          confirmOnDelete: true,
+          bulk: isArray(scope.context),
         }, true)
         .withEvents({
           onLikeToggle() {
@@ -36,8 +39,8 @@ export default (app: Instance, store: Store) => () => ({
           onShare() {
             scope.onShare({context: scope.context});
           },
-          onCopy() {
-            scope.onCopy({context: scope.context});
+          onClone() {
+            scope.onClone({context: scope.context});
           },
           onDelete() {
             const fn = () => scope.onDelete({context: scope.context});
@@ -45,7 +48,7 @@ export default (app: Instance, store: Store) => () => ({
             if (!scope.options.confirmOnDelete) {
               fn();
             } else {
-              confirmAction('delete', scope.type, scope.options.bulk).then(fn);
+              confirmAction('delete', scope.type, scope.context, scope.options.customText).then(fn);
             }
           }
         });

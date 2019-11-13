@@ -1,17 +1,39 @@
-import {Browser, Page} from 'puppeteer';
+import {Browser, Page, ElementHandle} from 'puppeteer';
 import {baseURL} from './e2e-common';
 import fetch from 'node-fetch';
 
 const WAIT_TIMEOUT = 5000;
 
 const element = async (page: Page, selector) => {
-  await page.waitForSelector(selector, {timeout: WAIT_TIMEOUT});
+  if (page.waitForSelector) {
+    await page.waitForSelector(selector, {timeout: WAIT_TIMEOUT});
+  }
+
   return page.$(selector);
 }
 
 const elements = async (page: Page, selector) => {
-  await page.waitForSelector(selector, {timeout: WAIT_TIMEOUT});
+  if (page.waitForSelector) {
+    await page.waitForSelector(selector, {timeout: WAIT_TIMEOUT});
+  }
+
   return page.$$(selector);
+}
+
+const evalOne = async (page: Page, selector, fn: (element: Element) => any) => {
+  if (page.waitForSelector) {
+    await page.waitForSelector(selector, {timeout: WAIT_TIMEOUT});
+  }
+
+  return page.$eval(selector, fn);
+}
+
+const evalMany = async (page: Page, selector, fn: (elements: Element[]) => any) => {
+  if (page.waitForSelector) {
+    await page.waitForSelector(selector, {timeout: WAIT_TIMEOUT});
+  }
+
+  return page.$$eval(selector, fn);
 }
 
 export class Driver {
@@ -21,6 +43,7 @@ export class Driver {
   public url: URL;
   public query: Query;
   public click: Click;
+  public evaluate: Evaluate;
   public log: Log;
 
   async init() {
@@ -29,6 +52,7 @@ export class Driver {
     this.url = new URL(this.page);
     this.query = new Query(this.page);
     this.click = new Click(this.page);
+    this.evaluate = new Evaluate(this.page);
     this.log = new Log(this.page);
 
     await this.mock.reset();
@@ -40,8 +64,12 @@ export class Driver {
     return this.page.goto(`${baseURL}/#${state}`);
   }
 
-  getTestkitPage() {
-    return new TestkitPage(this.page);
+  async sleep(ms: number) {
+    return this.page.waitFor(ms);
+  }
+
+  createTestkit(TestkitCtor) {
+    return new TestkitCtor(this.page);
   }
 }
 
@@ -134,6 +162,34 @@ export class Click {
   }
 }
 
+export class Evaluate {
+  constructor (private readonly page: Page) {}
+
+  async hook(hook: string, fn: (element: Element) => any) {
+    return evalOne(this.page, `[data-hook="${hook}"]`, fn);
+  }
+
+  async hooks(hook: string, fn: (element: Element[]) => any) {
+   return evalMany(this.page, `[data-hook="${hook}"]`, fn);
+  }
+
+  async attr(attr: string, fn: (element: Element) => any) {
+    return evalOne(this.page, `[${attr}]`, fn);
+  }
+
+  async attrs(attr: string, fn: (element: Element[]) => any) {
+   return evalMany(this.page, `[${attr}]`, fn);
+  }
+
+  async $(selector: string, fn: (element: Element) => any) {
+    return evalOne(this.page, selector, fn);
+  }
+
+  async $$(selector: string, fn: (element: Element[]) => any) {
+    return evalMany(this.page, selector, fn);
+  }
+}
+
 export class Log {
   constructor (private readonly page: Page) {}
 
@@ -148,12 +204,18 @@ export class Log {
   }
 }
 
-export class TestkitPage {
+export class Testkit {
   public query: Query;
   public click: Click;
+  public evaluate: Evaluate;
 
-  constructor (page: Page) {
-    this.query = new Query(page);
-    this.click = new Click(page);
+  constructor(pageOrElement: Page | ElementHandle) {
+    if (!pageOrElement) {
+      throw new Error('Got null page or element');
+    }
+
+    this.query = new Query(pageOrElement as Page);
+    this.click = new Click(pageOrElement as Page);
+    this.evaluate = new Evaluate(pageOrElement as Page);
   }
 }

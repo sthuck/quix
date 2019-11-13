@@ -1,4 +1,9 @@
-import {SearchQuery, SearchTypes, searchTextType} from './types';
+import {
+  SearchQuery,
+  SearchTypes,
+  searchTextType,
+  SpeciaSearchTypes,
+} from './types';
 
 const createRegExAtBeginingOrEnd = (regex: string | RegExp): RegExp[] => {
   const source = regex instanceof RegExp ? regex.source : regex;
@@ -28,7 +33,7 @@ export const parse = (s: string): SearchQuery => {
 
 const getSpecialOperators = (
   s: string,
-  operators: SearchTypes[] = [
+  operators: SpeciaSearchTypes[] = [
     SearchTypes.noteName,
     SearchTypes.type,
     SearchTypes.user,
@@ -41,6 +46,7 @@ const getSpecialOperators = (
       const match = regex.exec(s);
 
       if (match && match[1]) {
+        const f = match[1];
         query[operator] = match[1];
         s = s.replace(match[0], '');
         /* do anohter iteration, to handle other operators */
@@ -59,6 +65,7 @@ const getSpecialOperators = (
   return [query, s];
 };
 
+const fullTextSearchSpeciaChars = /[+\-><\(\)~*\/"@]+/g;
 const getTextFromSearchQuery = (s: string) => {
   const result = [];
   let match = null;
@@ -67,8 +74,14 @@ const getTextFromSearchQuery = (s: string) => {
   while ((match = searchRegexMap[SearchTypes.content][0].exec(s))) {
     result.push(
       match[1]
-        ? {type: searchTextType.WORD, text: match[1].replace('@', ' ')}
-        : {type: searchTextType.PHRASE, text: match[2].replace('@', ' ')},
+        ? {
+            type: searchTextType.WORD,
+            text: match[1].replace(fullTextSearchSpeciaChars, ' ').trim(),
+          }
+        : {
+            type: searchTextType.PHRASE,
+            text: match[2].replace(fullTextSearchSpeciaChars, ' ').trim(),
+          },
     );
   }
   return result;
